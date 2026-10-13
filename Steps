@@ -1,0 +1,31 @@
+Here is the complete steps on how to install the tools, files, and directories
+
+1. Install Tools Needed:
+
+npm init -y
+npm install @nestjs/common @nestjs/core @nestjs/platform-express reflect-metadata rxjs
+npm install express
+npm install mysql2 dotenv bcryptjs passport passport-jwt @nestjs/jwt @nestjs/passport
+npm install ts-node-dev typescript @types/node --save-dev
+npm install --save-dev @types/passport-jwt
+npm install --save-dev typescript@5
+npm install -D ts-node-dev
+
+2. Create Files and Folders
+
+.env
+.gitignore
+tsconfig.json
+
+Then paste the codes
+
+3. Modify package.json, then paste the code
+
+To run:
+
+npm run start:dev
+
+To build:
+
+npm run build
+npm run start
