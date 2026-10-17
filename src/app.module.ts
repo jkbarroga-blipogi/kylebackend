@@ -4,6 +4,7 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { CategoryModule } from './category/category.module';
 import { AnimalModule } from './animal/animal.module';
+import { ShelterModule } from './shelter/shelter.module';
 
 @Module({
   imports: [
@@ -24,6 +25,11 @@ import { AnimalModule } from './animal/animal.module';
     AuthModule,
     CategoryModule,
     AnimalModule,
+    UsersModule,
+    AuthModule,
+    CategoryModule,
+    AnimalModule,
+    ShelterModule,
   ],
 })
 export class AppModule {}
