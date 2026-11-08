@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
+import type { PoolConnection } from 'mysql2/promise';
 import { DatabaseService } from '../database/database.service';
 
 type TableConfig = {
@@ -159,6 +160,49 @@ export class ShelterService {
     return { keys, values };
   }
 
+  // Isang lugar lang ang pag-translate ng MySQL errors — pareho ang
+  // sagot ng normal CRUD at ng adoption transaction.
+  private rethrowDbError(error: unknown): never {
+    const code = (error as { code?: string }).code;
+
+    if (code === 'ER_DUP_ENTRY') {
+      throw new ConflictException('A unique value is already used');
+    }
+
+    if (code === 'ER_NO_REFERENCED_ROW_2') {
+      throw new BadRequestException(
+        'A referenced ID does not exist',
+      );
+    }
+
+    if (code === 'ER_ROW_IS_REFERENCED_2') {
+      throw new ConflictException(
+        'Another record still uses this record',
+      );
+    }
+
+    if (code === 'ER_LOCK_DEADLOCK') {
+      throw new ConflictException(
+        'The record is busy — please try again',
+      );
+    }
+
+    if (
+      [
+        'ER_DATA_TOO_LONG',
+        'ER_BAD_NULL_ERROR',
+        'ER_TRUNCATED_WRONG_VALUE',
+        'ER_TRUNCATED_WRONG_VALUE_FOR_FIELD',
+      ].includes(code ?? '')
+    ) {
+      throw new BadRequestException(
+        'Check field values, lengths, and dates',
+      );
+    }
+
+    throw error;
+  }
+
   private async query<T extends RowDataPacket[] | ResultSetHeader>(
     sql: string,
     values: (string | number | null)[] = [],
@@ -171,38 +215,199 @@ export class ShelterService {
 
       return result;
     } catch (error) {
-      const code = (error as { code?: string }).code;
+      this.rethrowDbError(error);
+    }
+  }
 
-      if (code === 'ER_DUP_ENTRY') {
-        throw new ConflictException('A unique value is already used');
+  // Naka-lock ang Animal row habang tinitignan kung pwede pang i-adopt.
+  // Dalawang sabay na request ang pumila dito, kaya isa lang ang makuha.
+  private async lockAvailableAnimal(
+    conn: PoolConnection,
+    animalId: number,
+  ) {
+    const [animalRows] = await conn.execute<RowDataPacket[]>(
+      'SELECT `animal_id`, `adoption_status` FROM `Animal` WHERE `animal_id` = ? FOR UPDATE',
+      [animalId],
+    );
+
+    const animal = animalRows[0];
+
+    if (!animal) {
+      throw new BadRequestException('Animal not found');
+    }
+
+    const [adoptionRows] = await conn.execute<RowDataPacket[]>(
+      'SELECT `adoption_id` FROM `Adoption` WHERE `animal_id` = ? LIMIT 1 FOR UPDATE',
+      [animalId],
+    );
+
+    if (
+      adoptionRows.length ||
+      String(animal.adoption_status ?? '').toLowerCase() ===
+        'adopted'
+    ) {
+      throw new ConflictException(
+        'This animal has already been adopted by someone else',
+      );
+    }
+  }
+
+  // POST adoption: isang animal, isang adoption record lang.
+  // Sabay na minamarkahan ang Animal bilang "Adopted".
+  private async createAdoption(body: unknown) {
+    const c = this.config('adoption');
+    const { keys, values } = this.fields(c, body, true);
+    const animalId = Number(values[keys.indexOf('animal_id')]);
+
+    const conn = await this.db.getPool().getConnection();
+
+    try {
+      await conn.beginTransaction();
+      await this.lockAvailableAnimal(conn, animalId);
+
+      const columns = keys.map(key => `\`${key}\``).join(', ');
+      const placeholders = keys.map(() => '?').join(', ');
+
+      const [result] = await conn.execute<ResultSetHeader>(
+        `INSERT INTO \`${c.table}\` (${columns})
+         VALUES (${placeholders})`,
+        values,
+      );
+
+      await conn.execute(
+        'UPDATE `Animal` SET `adoption_status` = ? WHERE `animal_id` = ?',
+        ['Adopted', animalId],
+      );
+
+      await conn.commit();
+
+      return this.findOne('adoption', result.insertId);
+    } catch (error) {
+      await conn.rollback();
+      this.rethrowDbError(error);
+    } finally {
+      conn.release();
+    }
+  }
+
+  // PUT adoption: kung pinalitan ang animal, titingnan munang
+  // available pa ito bago i-update ang record.
+  private async updateAdoption(id: number, body: unknown) {
+    const c = this.config('adoption');
+    const { keys, values } = this.fields(c, body, false);
+    this.checkId(id);
+
+    const conn = await this.db.getPool().getConnection();
+
+    try {
+      await conn.beginTransaction();
+
+      const [rows] = await conn.execute<RowDataPacket[]>(
+        'SELECT `animal_id` FROM `Adoption` WHERE `adoption_id` = ? FOR UPDATE',
+        [id],
+      );
+
+      if (!rows[0]) {
+        throw new NotFoundException('Record not found');
       }
 
-      if (code === 'ER_NO_REFERENCED_ROW_2') {
-        throw new BadRequestException(
-          'A referenced ID does not exist',
+      const oldAnimalId = Number(rows[0].animal_id);
+      const animalIndex = keys.indexOf('animal_id');
+      const newAnimalId =
+        animalIndex === -1 ? oldAnimalId : Number(values[animalIndex]);
+
+      if (newAnimalId !== oldAnimalId) {
+        await this.lockAvailableAnimal(conn, newAnimalId);
+      }
+
+      const assignments = keys
+        .map(key => `\`${key}\` = ?`)
+        .join(', ');
+
+      await conn.execute<ResultSetHeader>(
+        `UPDATE \`${c.table}\`
+         SET ${assignments}
+         WHERE \`${c.id}\` = ?`,
+        [...values, id],
+      );
+
+      if (newAnimalId !== oldAnimalId) {
+        const [remaining] = await conn.execute<RowDataPacket[]>(
+          'SELECT `adoption_id` FROM `Adoption` WHERE `animal_id` = ? AND `adoption_id` <> ? LIMIT 1',
+          [oldAnimalId, id],
+        );
+
+        if (!remaining.length) {
+          await conn.execute(
+            'UPDATE `Animal` SET `adoption_status` = ? WHERE `animal_id` = ?',
+            ['Available', oldAnimalId],
+          );
+        }
+      }
+
+      // Laging naka-"Adopted" ang animal na may adoption record.
+      await conn.execute(
+        'UPDATE `Animal` SET `adoption_status` = ? WHERE `animal_id` = ?',
+        ['Adopted', newAnimalId],
+      );
+
+      await conn.commit();
+
+      return this.findOne('adoption', id);
+    } catch (error) {
+      await conn.rollback();
+      this.rethrowDbError(error);
+    } finally {
+      conn.release();
+    }
+  }
+
+  // DELETE adoption: ibinabalik sa "Available" ang animal kapag
+  // wala nang ibang adoption record para dito.
+  private async removeAdoption(id: number) {
+    this.checkId(id);
+
+    const conn = await this.db.getPool().getConnection();
+
+    try {
+      await conn.beginTransaction();
+
+      const [rows] = await conn.execute<RowDataPacket[]>(
+        'SELECT `animal_id` FROM `Adoption` WHERE `adoption_id` = ? FOR UPDATE',
+        [id],
+      );
+
+      if (!rows[0]) {
+        throw new NotFoundException('Record not found');
+      }
+
+      const animalId = Number(rows[0].animal_id);
+
+      await conn.execute(
+        'DELETE FROM `Adoption` WHERE `adoption_id` = ?',
+        [id],
+      );
+
+      const [remaining] = await conn.execute<RowDataPacket[]>(
+        'SELECT `adoption_id` FROM `Adoption` WHERE `animal_id` = ? LIMIT 1',
+        [animalId],
+      );
+
+      if (!remaining.length) {
+        await conn.execute(
+          'UPDATE `Animal` SET `adoption_status` = ? WHERE `animal_id` = ?',
+          ['Available', animalId],
         );
       }
 
-      if (code === 'ER_ROW_IS_REFERENCED_2') {
-        throw new ConflictException(
-          'Another record still uses this record',
-        );
-      }
+      await conn.commit();
 
-      if (
-        [
-          'ER_DATA_TOO_LONG',
-          'ER_BAD_NULL_ERROR',
-          'ER_TRUNCATED_WRONG_VALUE',
-          'ER_TRUNCATED_WRONG_VALUE_FOR_FIELD',
-        ].includes(code ?? '')
-      ) {
-        throw new BadRequestException(
-          'Check field values, lengths, and dates',
-        );
-      }
-
-      throw error;
+      return { deleted: true, id };
+    } catch (error) {
+      await conn.rollback();
+      this.rethrowDbError(error);
+    } finally {
+      conn.release();
     }
   }
 
@@ -235,6 +440,11 @@ export class ShelterService {
   // POST
   async create(resource: string, body: unknown) {
     const c = this.config(resource);
+
+    if (resource === 'adoption') {
+      return this.createAdoption(body);
+    }
+
     const { keys, values } = this.fields(c, body, true);
 
     const columns = keys.map(key => `\`${key}\``).join(', ');
@@ -252,6 +462,11 @@ export class ShelterService {
   // PUT: update the supplied fields
   async update(resource: string, id: number, body: unknown) {
     const c = this.config(resource);
+
+    if (resource === 'adoption') {
+      return this.updateAdoption(id, body);
+    }
+
     const { keys, values } = this.fields(c, body, false);
 
     await this.findOne(resource, id);
@@ -273,6 +488,11 @@ export class ShelterService {
   // DELETE
   async remove(resource: string, id: number) {
     const c = this.config(resource);
+
+    if (resource === 'adoption') {
+      return this.removeAdoption(id);
+    }
+
     this.checkId(id);
 
     const result = await this.query<ResultSetHeader>(
