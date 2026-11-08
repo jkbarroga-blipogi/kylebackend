@@ -219,9 +219,9 @@ export class ShelterService {
     }
   }
 
-  // Naka-lock ang Animal row habang tinitignan kung pwede pang i-adopt.
-  // Dalawang sabay na request ang pumila dito, kaya isa lang ang makuha.
-  private async lockAvailableAnimal(
+  // Naka-lock ang Animal row para hindi sabay na makapasok ang dalawang
+  // request para sa parehong animal.
+  private async lockAnimalRow(
     conn: PoolConnection,
     animalId: number,
   ) {
@@ -236,6 +236,14 @@ export class ShelterService {
       throw new BadRequestException('Animal not found');
     }
 
+    return animal;
+  }
+
+  private async assertAnimalNotAdopted(
+    conn: PoolConnection,
+    animalId: number,
+    adoptionStatus: unknown,
+  ) {
     const [adoptionRows] = await conn.execute<RowDataPacket[]>(
       'SELECT `adoption_id` FROM `Adoption` WHERE `animal_id` = ? LIMIT 1 FOR UPDATE',
       [animalId],
@@ -243,11 +251,91 @@ export class ShelterService {
 
     if (
       adoptionRows.length ||
-      String(animal.adoption_status ?? '').toLowerCase() ===
+      String(adoptionStatus ?? '').trim().toLowerCase() ===
         'adopted'
     ) {
       throw new ConflictException(
         'This animal has already been adopted by someone else',
+      );
+    }
+  }
+
+  private isAdoptedApplicationStatus(status: unknown) {
+    return ['adopted', 'completed'].includes(
+      String(status ?? '').trim().toLowerCase(),
+    );
+  }
+
+  private async assertNoOtherAdoptedApplication(
+    conn: PoolConnection,
+    animalId: number,
+    ignoreApplicationId: number,
+  ) {
+    const [rows] = await conn.execute<RowDataPacket[]>(
+      `SELECT \`application_id\` FROM \`Adoption_Application\`
+       WHERE \`animal_id\` = ?
+         AND \`application_id\` <> ?
+         AND COALESCE(LOWER(TRIM(\`application_status\`)), '')
+             IN ('adopted', 'completed')
+       LIMIT 1 FOR UPDATE`,
+      [animalId, ignoreApplicationId],
+    );
+
+    if (rows.length) {
+      throw new ConflictException(
+        'This animal already has an adopted application',
+      );
+    }
+  }
+
+  // Markahan ang animal na "Adopted" at isara ang ibang open applications.
+  private async markAnimalAdopted(
+    conn: PoolConnection,
+    animalId: number,
+    keepApplicationId: number,
+  ) {
+    await conn.execute(
+      'UPDATE `Animal` SET `adoption_status` = ? WHERE `animal_id` = ?',
+      ['Adopted', animalId],
+    );
+
+    await conn.execute(
+      `UPDATE \`Adoption_Application\`
+       SET \`application_status\` = ?
+       WHERE \`animal_id\` = ?
+         AND \`application_id\` <> ?
+         AND COALESCE(LOWER(TRIM(\`application_status\`)), '')
+             NOT IN ('adopted', 'completed', 'rejected', 'cancelled', 'canceled')`,
+      ['Rejected', animalId, keepApplicationId],
+    );
+  }
+
+  // Ibalik sa "Available" ang animal kung wala nang adoption record
+  // at wala nang ibang application na "adopted"/"completed".
+  private async releaseAnimalIfUnadopted(
+    conn: PoolConnection,
+    animalId: number,
+    ignoreApplicationId: number,
+  ) {
+    const [adoptionRows] = await conn.execute<RowDataPacket[]>(
+      'SELECT `adoption_id` FROM `Adoption` WHERE `animal_id` = ? LIMIT 1',
+      [animalId],
+    );
+
+    const [applicationRows] = await conn.execute<RowDataPacket[]>(
+      `SELECT \`application_id\` FROM \`Adoption_Application\`
+       WHERE \`animal_id\` = ?
+         AND \`application_id\` <> ?
+         AND COALESCE(LOWER(TRIM(\`application_status\`)), '')
+             IN ('adopted', 'completed')
+       LIMIT 1`,
+      [animalId, ignoreApplicationId],
+    );
+
+    if (!adoptionRows.length && !applicationRows.length) {
+      await conn.execute(
+        'UPDATE `Animal` SET `adoption_status` = ? WHERE `animal_id` = ?',
+        ['Available', animalId],
       );
     }
   }
@@ -263,7 +351,13 @@ export class ShelterService {
 
     try {
       await conn.beginTransaction();
-      await this.lockAvailableAnimal(conn, animalId);
+
+      const animal = await this.lockAnimalRow(conn, animalId);
+      await this.assertAnimalNotAdopted(
+        conn,
+        animalId,
+        animal.adoption_status,
+      );
 
       const columns = keys.map(key => `\`${key}\``).join(', ');
       const placeholders = keys.map(() => '?').join(', ');
@@ -317,7 +411,12 @@ export class ShelterService {
         animalIndex === -1 ? oldAnimalId : Number(values[animalIndex]);
 
       if (newAnimalId !== oldAnimalId) {
-        await this.lockAvailableAnimal(conn, newAnimalId);
+        const animal = await this.lockAnimalRow(conn, newAnimalId);
+        await this.assertAnimalNotAdopted(
+          conn,
+          newAnimalId,
+          animal.adoption_status,
+        );
       }
 
       const assignments = keys
@@ -411,6 +510,187 @@ export class ShelterService {
     }
   }
 
+  // POST adoption application: bawal kapag adopted na ang animal
+  // (may Adoption record, naka-"Adopted", o may adopted application na).
+  private async createAdoptionApplication(body: unknown) {
+    const c = this.config('adoption-application');
+    const { keys, values } = this.fields(c, body, true);
+    const animalId = Number(values[keys.indexOf('animal_id')]);
+    const statusIndex = keys.indexOf('application_status');
+    const status =
+      statusIndex === -1 ? 'Pending' : values[statusIndex];
+
+    const conn = await this.db.getPool().getConnection();
+
+    try {
+      await conn.beginTransaction();
+
+      const animal = await this.lockAnimalRow(conn, animalId);
+      await this.assertAnimalNotAdopted(
+        conn,
+        animalId,
+        animal.adoption_status,
+      );
+      await this.assertNoOtherAdoptedApplication(conn, animalId, 0);
+
+      const columns = keys.map(key => `\`${key}\``).join(', ');
+      const placeholders = keys.map(() => '?').join(', ');
+
+      const [result] = await conn.execute<ResultSetHeader>(
+        `INSERT INTO \`${c.table}\` (${columns})
+         VALUES (${placeholders})`,
+        values,
+      );
+
+      if (this.isAdoptedApplicationStatus(status)) {
+        await this.markAnimalAdopted(conn, animalId, result.insertId);
+      }
+
+      await conn.commit();
+
+      return this.findOne('adoption-application', result.insertId);
+    } catch (error) {
+      await conn.rollback();
+      this.rethrowDbError(error);
+    } finally {
+      conn.release();
+    }
+  }
+
+  // PUT adoption application: kung gagawing "adopted" ang status,
+  // isasara ang ibang applications at mama-mark ang animal.
+  private async updateAdoptionApplication(id: number, body: unknown) {
+    const c = this.config('adoption-application');
+    const { keys, values } = this.fields(c, body, false);
+    this.checkId(id);
+
+    const conn = await this.db.getPool().getConnection();
+
+    try {
+      await conn.beginTransaction();
+
+      const [rows] = await conn.execute<RowDataPacket[]>(
+        'SELECT `animal_id`, `application_status` FROM `Adoption_Application` WHERE `application_id` = ? FOR UPDATE',
+        [id],
+      );
+
+      if (!rows[0]) {
+        throw new NotFoundException('Record not found');
+      }
+
+      const oldAnimalId = Number(rows[0].animal_id);
+      const oldStatus = String(rows[0].application_status ?? '');
+
+      const animalIndex = keys.indexOf('animal_id');
+      const statusIndex = keys.indexOf('application_status');
+
+      const newAnimalId =
+        animalIndex === -1
+          ? oldAnimalId
+          : Number(values[animalIndex]);
+      const newStatus =
+        statusIndex === -1
+          ? oldStatus
+          : String(values[statusIndex]);
+
+      const wasFinal = this.isAdoptedApplicationStatus(oldStatus);
+      const isFinal = this.isAdoptedApplicationStatus(newStatus);
+
+      const animal = await this.lockAnimalRow(conn, newAnimalId);
+
+      // Kung lilipat ng animal, dapat available pa ang bagong animal.
+      if (newAnimalId !== oldAnimalId) {
+        await this.assertAnimalNotAdopted(
+          conn,
+          newAnimalId,
+          animal.adoption_status,
+        );
+      }
+
+      if (newAnimalId !== oldAnimalId || isFinal) {
+        await this.assertNoOtherAdoptedApplication(
+          conn,
+          newAnimalId,
+          id,
+        );
+      }
+
+      const assignments = keys
+        .map(key => `\`${key}\` = ?`)
+        .join(', ');
+
+      await conn.execute<ResultSetHeader>(
+        `UPDATE \`${c.table}\`
+         SET ${assignments}
+         WHERE \`${c.id}\` = ?`,
+        [...values, id],
+      );
+
+      if (newAnimalId !== oldAnimalId && wasFinal) {
+        await this.releaseAnimalIfUnadopted(conn, oldAnimalId, id);
+      }
+
+      if (isFinal) {
+        await this.markAnimalAdopted(conn, newAnimalId, id);
+      } else if (wasFinal && newAnimalId === oldAnimalId) {
+        await this.releaseAnimalIfUnadopted(conn, newAnimalId, id);
+      }
+
+      await conn.commit();
+
+      return this.findOne('adoption-application', id);
+    } catch (error) {
+      await conn.rollback();
+      this.rethrowDbError(error);
+    } finally {
+      conn.release();
+    }
+  }
+
+  // DELETE adoption application: kapag "adopted" ang tinanggal,
+  // ibalik sa "Available" ang animal kung wala nang ibang basehan.
+  private async removeAdoptionApplication(id: number) {
+    this.checkId(id);
+
+    const conn = await this.db.getPool().getConnection();
+
+    try {
+      await conn.beginTransaction();
+
+      const [rows] = await conn.execute<RowDataPacket[]>(
+        'SELECT `animal_id`, `application_status` FROM `Adoption_Application` WHERE `application_id` = ? FOR UPDATE',
+        [id],
+      );
+
+      if (!rows[0]) {
+        throw new NotFoundException('Record not found');
+      }
+
+      const animalId = Number(rows[0].animal_id);
+      const wasFinal = this.isAdoptedApplicationStatus(
+        rows[0].application_status,
+      );
+
+      await conn.execute(
+        'DELETE FROM `Adoption_Application` WHERE `application_id` = ?',
+        [id],
+      );
+
+      if (wasFinal) {
+        await this.releaseAnimalIfUnadopted(conn, animalId, id);
+      }
+
+      await conn.commit();
+
+      return { deleted: true, id };
+    } catch (error) {
+      await conn.rollback();
+      this.rethrowDbError(error);
+    } finally {
+      conn.release();
+    }
+  }
+
   // GET: all records
   findAll(resource: string) {
     const c = this.config(resource);
@@ -445,6 +725,10 @@ export class ShelterService {
       return this.createAdoption(body);
     }
 
+    if (resource === 'adoption-application') {
+      return this.createAdoptionApplication(body);
+    }
+
     const { keys, values } = this.fields(c, body, true);
 
     const columns = keys.map(key => `\`${key}\``).join(', ');
@@ -465,6 +749,10 @@ export class ShelterService {
 
     if (resource === 'adoption') {
       return this.updateAdoption(id, body);
+    }
+
+    if (resource === 'adoption-application') {
+      return this.updateAdoptionApplication(id, body);
     }
 
     const { keys, values } = this.fields(c, body, false);
@@ -491,6 +779,10 @@ export class ShelterService {
 
     if (resource === 'adoption') {
       return this.removeAdoption(id);
+    }
+
+    if (resource === 'adoption-application') {
+      return this.removeAdoptionApplication(id);
     }
 
     this.checkId(id);

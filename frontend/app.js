@@ -108,11 +108,11 @@ const RESOURCES = [
     key: "adoption-application", icon: "📋", label: "Adoption Application", group: "Shelter tables (generic CRUD)",
     path: "shelter/adoption-application", idKey: "application_id",
     fields: [
-      { name: "animal_id", label: "Animal", type: "number", required: true, ref: { key: "animal", labelKeys: ["animal_name"] } },
+      { name: "animal_id", label: "Animal", type: "number", required: true, ref: { key: "animal", labelKeys: ["animal_name"] }, hint: "Only animals that are not yet adopted are listed" },
       { name: "adopter_id", label: "Adopter", type: "number", required: true, ref: { key: "adopter", labelKeys: ["first_name", "last_name"] } },
       { name: "staff_id", label: "Staff", type: "number", required: true, ref: { key: "staff", labelKeys: ["first_name", "last_name"] } },
       { name: "application_date", label: "Application date", type: "date", required: true },
-      { name: "application_status", label: "Application status", type: "text" },
+      { name: "application_status", label: "Application status", type: "text", hint: "Use 'adopted' to finalize the adoption — other open applications will be rejected" },
     ],
   },
   {
@@ -513,12 +513,11 @@ function renderTable() {
     return;
   }
 
-  // Real-ID column is not displayed — "#" sequence is used as the index (Edit/Delete still target the actual ID)
+  // Real-ID column is not displayed (Edit/Delete still target the actual ID)
   const cols = tableColumns().filter((c) => c !== r.idKey);
-  const thead = `<tr><th>#</th>${cols.map((c) => `<th>${escapeHtml(prettyCol(c))}</th>`).join("")}<th></th></tr>`;
-  const tbody = rows.map((row, i) => `
+  const thead = `<tr>${cols.map((c) => `<th>${escapeHtml(prettyCol(c))}</th>`).join("")}<th></th></tr>`;
+  const tbody = rows.map((row) => `
     <tr data-id="${escapeHtml(row[r.idKey])}">
-      <td class="ord">${i + 1}</td>
       ${cols.map((c) => `<td>${renderCell(row, c)}</td>`).join("")}
       <td class="actions">
         <button class="btn sm act-edit">Edit</button>
@@ -609,22 +608,34 @@ function buildFormFields(r, row) {
     if (f.ref) {
       const rawVal = isEdit && row ? String(row[f.name] ?? "") : "";
 
-      // Sa Adoption form, hindi na dapat piliin ang mga animal na may
-      // adoption record o naka-"Adopted" na — para isang beses lang
-      // ma-adopt ang isang animal.
-      const onlyAvailableAnimals = r.key === "adoption" && f.name === "animal_id";
+      // Sa Adoption at Adoption Application forms, hindi na dapat piliin
+      // ang mga animal na may adoption record, naka-"Adopted", o may
+      // application nang "adopted" — para isang beses lang ma-adopt.
+      const onlyAvailableAnimals =
+        (r.key === "adoption" || r.key === "adoption-application") && f.name === "animal_id";
 
       getRefRows(f.ref.key).then(async (refRows) => {
         let selectableRows = refRows;
 
         if (onlyAvailableAnimals) {
-          const adoptions = await getRefRows("adoption");
+          const [adoptions, applications] = await Promise.all([
+            getRefRows("adoption"),
+            getRefRows("adoption-application"),
+          ]);
+
           const adoptedIds = new Set(adoptions.map((a) => String(a.animal_id)));
+          const adoptedApplicationIds = new Set(
+            applications
+              .filter((a) => /^(adopted|completed)$/i.test(String(a.application_status ?? "").trim()))
+              .map((a) => String(a.animal_id))
+          );
 
           selectableRows = refRows.filter((rr) => {
             const id = String(rr.animal_id);
             if (id === rawVal) return true; // panatilihin ang kasalukuyang value kapag edit
-            return !adoptedIds.has(id) && !/^adopted$/i.test(String(rr.adoption_status ?? ""));
+            return !adoptedIds.has(id)
+              && !adoptedApplicationIds.has(id)
+              && !/^adopted$/i.test(String(rr.adoption_status ?? "").trim());
           });
         }
 

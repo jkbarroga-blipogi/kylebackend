@@ -277,12 +277,11 @@ th {
 }
 tbody tr { transition: background .12s; }
 tbody tr:hover { background: var(--panel-2); }
-/* unang data column (pagkatapos ng "#") — medyo bold para may anchor ang mata */
-tbody td:nth-child(2) { font-weight: 600; }
+/* unang data column (wala nang "#" column) — medyo bold para may anchor ang mata */
+tbody td:nth-child(1) { font-weight: 600; }
 td.actions { text-align: right; white-space: nowrap; }
 td.actions .btn { margin-left: 5px; }
 .rowcount { color: var(--muted); font-size: 12px; padding: 10px 14px; }
-.ord { color: var(--muted); font-variant-numeric: tabular-nums; width: 34px; }
 
 /* ---------- badges (status) ---------- */
 .badge {
