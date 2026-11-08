@@ -1,10 +1,13 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
-import { ResultSetHeader, RowDataPacket } from 'mysql2';
+import { RowDataPacket } from 'mysql2';
+import type { ResultSetHeader } from 'mysql2';
 import type { PoolConnection } from 'mysql2/promise';
 import type { DatabaseService } from '../database/database.service';
 import { configFor } from './table.config';
 import type { TableConfig } from './table.config';
-import { checkId, fields, query, rethrowDbError } from './validation';
+import { checkId, fields } from './validation';
+import * as crud from './crud';
+import { inTx } from './tx';
 
 type AdoptionStatusRow = { adoption_status: unknown };
 
@@ -141,16 +144,14 @@ function buildUpdate(c: Pick<TableConfig, 'table' | 'id'>, keys: string[]) {
   WHERE \`${c.id}\` = ?`;
 }
 
+// POST adoption: one animal, one adoption record. The animal is
+// marked "Adopted" within the same transaction.
 export async function createAdoption(db: DatabaseService, body: unknown) {
   const c = configFor('adoption');
   const { keys, values } = fields(c, body, true);
   const animalId = Number(values[keys.indexOf('animal_id')]);
 
-  const conn = await db.getPool().getConnection();
-
-  try {
-    await conn.beginTransaction();
-
+  const insertId = await inTx(db, async conn => {
     const animal = await lockAnimalRow(conn, animalId);
     await assertAnimalNotAdopted(
       conn,
@@ -168,32 +169,20 @@ export async function createAdoption(db: DatabaseService, body: unknown) {
       ['Adopted', animalId],
     );
 
-    await conn.commit();
+    return Number(result.insertId);
+  });
 
-    const readConfig = configFor('adoption');
-    const readRows = await query<RowDataPacket[]>(db, `SELECT * FROM \`${readConfig.table}\` WHERE \`${readConfig.id}\` = ?`, [Number(result.insertId)]);
-    if (!readRows[0]) {
-      throw new NotFoundException('Record not found');
-    }
-    return readRows[0];
-  } catch (error) {
-    await conn.rollback();
-    rethrowDbError(error);
-  } finally {
-    conn.release();
-  }
+  return crud.findOne(db, 'adoption', insertId);
 }
 
+// PUT adoption: when the animal changes, verify the new animal is
+// still available before writing the adoption record.
 export async function updateAdoption(db: DatabaseService, id: number, body: unknown) {
   const c = configFor('adoption');
   const { keys, values } = fields(c, body, false);
   checkId(id);
 
-  const conn = await db.getPool().getConnection();
-
-  try {
-    await conn.beginTransaction();
-
+  await inTx(db, async conn => {
     const [rows] = await conn.execute<RowDataPacket[]>(
       'SELECT `animal_id` FROM `Adoption` WHERE `adoption_id` = ? FOR UPDATE',
       [id],
@@ -241,31 +230,17 @@ export async function updateAdoption(db: DatabaseService, id: number, body: unkn
       'UPDATE `Animal` SET `adoption_status` = ? WHERE `animal_id` = ?',
       ['Adopted', newAnimalId],
     );
+  });
 
-    await conn.commit();
-
-    const readConfig = configFor('adoption');
-    const readRows = await query<RowDataPacket[]>(db, `SELECT * FROM \`${readConfig.table}\` WHERE \`${readConfig.id}\` = ?`, [id]);
-    if (!readRows[0]) {
-      throw new NotFoundException('Record not found');
-    }
-    return readRows[0];
-  } catch (error) {
-    await conn.rollback();
-    rethrowDbError(error);
-  } finally {
-    conn.release();
-  }
+  return crud.findOne(db, 'adoption', id);
 }
 
+// DELETE adoption: restores "Available" when no other adoption
+// record remains for the animal.
 export async function removeAdoption(db: DatabaseService, id: number) {
   checkId(id);
 
-  const conn = await db.getPool().getConnection();
-
-  try {
-    await conn.beginTransaction();
-
+  await inTx(db, async conn => {
     const [rows] = await conn.execute<RowDataPacket[]>(
       'SELECT `animal_id` FROM `Adoption` WHERE `adoption_id` = ? FOR UPDATE',
       [id],
@@ -293,18 +268,13 @@ export async function removeAdoption(db: DatabaseService, id: number) {
         ['Available', animalId],
       );
     }
+  });
 
-    await conn.commit();
-
-    return { deleted: true, id };
-  } catch (error) {
-    await conn.rollback();
-    rethrowDbError(error);
-  } finally {
-    conn.release();
-  }
+  return { deleted: true, id };
 }
 
+// POST adoption application: blocked when the animal is already
+// adopted (Adoption record, "Adopted" status, or adopted application).
 export async function createAdoptionApplication(db: DatabaseService, body: unknown) {
   const c = configFor('adoption-application');
   const { keys, values } = fields(c, body, true);
@@ -313,11 +283,7 @@ export async function createAdoptionApplication(db: DatabaseService, body: unkno
   const status =
     statusIndex === -1 ? 'Pending' : values[statusIndex];
 
-  const conn = await db.getPool().getConnection();
-
-  try {
-    await conn.beginTransaction();
-
+  const insertId = await inTx(db, async conn => {
     const animal = await lockAnimalRow(conn, animalId);
     await assertAnimalNotAdopted(
       conn,
@@ -335,32 +301,20 @@ export async function createAdoptionApplication(db: DatabaseService, body: unkno
       await markAnimalAdopted(conn, animalId, result.insertId);
     }
 
-    await conn.commit();
+    return Number(result.insertId);
+  });
 
-    const readConfig = configFor('adoption-application');
-    const readRows = await query<RowDataPacket[]>(db, `SELECT * FROM \`${readConfig.table}\` WHERE \`${readConfig.id}\` = ?`, [Number(result.insertId)]);
-    if (!readRows[0]) {
-      throw new NotFoundException('Record not found');
-    }
-    return readRows[0];
-  } catch (error) {
-    await conn.rollback();
-    rethrowDbError(error);
-  } finally {
-    conn.release();
-  }
+  return crud.findOne(db, 'adoption-application', insertId);
 }
 
+// PUT adoption application: flipping the status to "adopted" closes
+// the other applications and marks the animal.
 export async function updateAdoptionApplication(db: DatabaseService, id: number, body: unknown) {
   const c = configFor('adoption-application');
   const { keys, values } = fields(c, body, false);
   checkId(id);
 
-  const conn = await db.getPool().getConnection();
-
-  try {
-    await conn.beginTransaction();
-
+  await inTx(db, async conn => {
     const [rows] = await conn.execute<RowDataPacket[]>(
       'SELECT `animal_id`, `application_status` FROM `Adoption_Application` WHERE `application_id` = ? FOR UPDATE',
       [id],
@@ -421,31 +375,17 @@ export async function updateAdoptionApplication(db: DatabaseService, id: number,
     } else if (wasFinal && newAnimalId === oldAnimalId) {
       await releaseAnimalIfUnadopted(conn, newAnimalId, id);
     }
+  });
 
-    await conn.commit();
-
-    const readConfig = configFor('adoption-application');
-    const readRows = await query<RowDataPacket[]>(db, `SELECT * FROM \`${readConfig.table}\` WHERE \`${readConfig.id}\` = ?`, [id]);
-    if (!readRows[0]) {
-      throw new NotFoundException('Record not found');
-    }
-    return readRows[0];
-  } catch (error) {
-    await conn.rollback();
-    rethrowDbError(error);
-  } finally {
-    conn.release();
-  }
+  return crud.findOne(db, 'adoption-application', id);
 }
 
+// DELETE adoption application: when the deleted application was the
+// adopted one, return the animal to "Available" if no other basis exists.
 export async function removeAdoptionApplication(db: DatabaseService, id: number) {
   checkId(id);
 
-  const conn = await db.getPool().getConnection();
-
-  try {
-    await conn.beginTransaction();
-
+  await inTx(db, async conn => {
     const [rows] = await conn.execute<RowDataPacket[]>(
       'SELECT `animal_id`, `application_status` FROM `Adoption_Application` WHERE `application_id` = ? FOR UPDATE',
       [id],
@@ -468,14 +408,7 @@ export async function removeAdoptionApplication(db: DatabaseService, id: number)
     if (wasFinal) {
       await releaseAnimalIfUnadopted(conn, animalId, id);
     }
+  });
 
-    await conn.commit();
-
-    return { deleted: true, id };
-  } catch (error) {
-    await conn.rollback();
-    rethrowDbError(error);
-  } finally {
-    conn.release();
-  }
+  return { deleted: true, id };
 }
