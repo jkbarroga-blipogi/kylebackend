@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { NotFoundException, BadRequestException } from "@nestjs/common";
+import { NotFoundException, BadRequestException, ConflictException } from "@nestjs/common";
 
 import { UsersService } from "../src/users/users.service";
 import { CategoryService } from "../src/category/category.service";
@@ -130,6 +130,53 @@ describe("UsersService SQL contract", () => {
     const out = await canned.users.deleteUser(2);
     expect(out).toEqual({ affectedRows: 1 });
     expect(captureOf(canned)[0].sql).toBe("DELETE FROM users WHERE id = ?");
+  });
+});
+
+describe("users and category error mapping (V5)", () => {
+  it("maps duplicate-entry errors to Conflict on user create", async () => {
+    const { users } = setup([
+      { kind: "error", error: { code: "ER_DUP_ENTRY" } },
+    ]);
+    await expect(users.createUser("ana", "pass1234")).rejects.toThrow(
+      new ConflictException("Duplicate value"),
+    );
+  });
+
+  it("maps still-referenced errors to Conflict on user delete", async () => {
+    const { users } = setup([
+      { kind: "error", error: { code: "ER_ROW_IS_REFERENCED_2" } },
+    ]);
+    await expect(users.deleteUser(2)).rejects.toThrow(
+      new ConflictException("Another record still uses this record"),
+    );
+  });
+
+  it("maps duplicate-entry errors to Conflict on category create", async () => {
+    const { category } = setup([
+      { kind: "error", error: { code: "ER_DUP_ENTRY" } },
+    ]);
+    await expect(category.createCategory({ name: "Vaccines" })).rejects.toThrow(
+      new ConflictException("Duplicate value"),
+    );
+  });
+
+  it("maps still-referenced errors to Conflict on category delete", async () => {
+    const { category } = setup([
+      { kind: "error", error: { code: "ER_ROW_IS_REFERENCED_2" } },
+    ]);
+    await expect(category.deleteCategory(1)).rejects.toThrow(
+      new ConflictException("Another record still uses this record"),
+    );
+  });
+
+  it("maps missing-reference errors to BadRequest on category create", async () => {
+    const { category } = setup([
+      { kind: "error", error: { code: "ER_NO_REFERENCED_ROW_2" } },
+    ]);
+    await expect(category.createCategory({ name: "Vaccines" })).rejects.toThrow(
+      new BadRequestException("A referenced ID does not exist"),
+    );
   });
 });
 

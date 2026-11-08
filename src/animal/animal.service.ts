@@ -1,12 +1,12 @@
 import {
   BadRequestException,
-  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { DatabaseService } from '../database/database.service';
+import { translateSqlError } from '../database/sql-errors';
 
 // Shapes returned to the API. Kept identical to the previous TypeORM
 // responses: date columns as YYYY-MM-DD strings, joined relations nested
@@ -220,24 +220,12 @@ export class AnimalService {
     try {
       return await action();
     } catch (error) {
-      const code = (
-        error as { driverError?: { code?: string } }
-      ).driverError?.code;
+      const mapped = translateSqlError(
+        error,
+      );
 
-      if (code === 'ER_DUP_ENTRY') {
-        throw new ConflictException('Duplicate value');
-      }
-
-      if (code === 'ER_ROW_IS_REFERENCED_2') {
-        throw new ConflictException(
-          'Another record still uses this record',
-        );
-      }
-
-      if (code === 'ER_NO_REFERENCED_ROW_2') {
-        throw new BadRequestException(
-          'A referenced ID does not exist',
-        );
+      if (mapped !== null) {
+        throw mapped;
       }
 
       throw error;

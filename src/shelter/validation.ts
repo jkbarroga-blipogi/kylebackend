@@ -1,6 +1,7 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import type { DatabaseService } from '../database/database.service';
+import { translateSqlError } from '../database/sql-errors';
 import type { TableConfig } from './table.config';
 
 export function checkId(id: number) {
@@ -90,43 +91,12 @@ export function fields(
 }
 
 // One place translates MySQL errors during responses: normal CRUD and
-// the adoption transaction family reuse this table of mappings.
+// the adoption transaction family reuse the shared sql-errors table.
 export function rethrowDbError(error: unknown): never {
-  const code = (error as { code?: string }).code;
+  const mapped = translateSqlError(error);
 
-  if (code === 'ER_DUP_ENTRY') {
-    throw new ConflictException('A unique value is already used');
-  }
-
-  if (code === 'ER_NO_REFERENCED_ROW_2') {
-    throw new BadRequestException(
-      'A referenced ID does not exist',
-    );
-  }
-
-  if (code === 'ER_ROW_IS_REFERENCED_2') {
-    throw new ConflictException(
-      'Another record still uses this record',
-    );
-  }
-
-  if (code === 'ER_LOCK_DEADLOCK') {
-    throw new ConflictException(
-      'The record is busy — please try again',
-    );
-  }
-
-  if (
-    [
-      'ER_DATA_TOO_LONG',
-      'ER_BAD_NULL_ERROR',
-      'ER_TRUNCATED_WRONG_VALUE',
-      'ER_TRUNCATED_WRONG_VALUE_FOR_FIELD',
-    ].includes(code ?? '')
-  ) {
-    throw new BadRequestException(
-      'Check field values, lengths, and dates',
-    );
+  if (mapped !== null) {
+    throw mapped;
   }
 
   throw error;

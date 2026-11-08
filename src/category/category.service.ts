@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { ResultSetHeader } from 'mysql2';
+import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { DatabaseService } from '../database/database.service';
+import { translateSqlError } from '../database/sql-errors';
 
 @Injectable()
 export class CategoryService {
@@ -10,10 +11,29 @@ export class CategoryService {
     return this.db.getPool();
   }
 
+  /** Single execution path for category queries: maps driver errors to HTTP outcomes. */
+  private async run<T extends RowDataPacket[] | ResultSetHeader>(
+    sql: string,
+    values: (string | number | null)[] = [],
+  ): Promise<T> {
+    try {
+      const [result] = await this.pool().execute<T>(sql, values);
+      return result;
+    } catch (error) {
+      const mapped = translateSqlError(error);
+
+      if (mapped !== null) {
+        throw mapped;
+      }
+
+      throw error;
+    }
+  }
+
   async createCategory(data: { name: string; description?: string }) {
     const { name, description = null } = data;
 
-    const [result] = await this.pool().execute<ResultSetHeader>(
+    const result = await this.run<ResultSetHeader>(
       `INSERT INTO categories (name, description) VALUES (?, ?)`,
       [name, description],
     );
@@ -22,7 +42,7 @@ export class CategoryService {
   }
 
   async findById(id: number) {
-    const [rows] = await this.pool().execute<any[]>(
+    const rows = await this.run<any[]>(
       `SELECT id, name, description, created_at FROM categories WHERE id = ?`,
       [id],
     );
@@ -35,7 +55,7 @@ export class CategoryService {
   }
 
   async getAll() {
-    const [rows] = await this.pool().execute<any[]>(
+    const rows = await this.run<any[]>(
       `SELECT id, name, description, created_at FROM categories`,
     );
 
@@ -65,13 +85,13 @@ export class CategoryService {
 
     const sql = `UPDATE categories SET ${fields.join(', ')} WHERE id = ?`;
 
-    await this.pool().execute(sql, values);
+    await this.run(sql, values);
 
     return this.findById(id);
   }
 
   async deleteCategory(id: number) {
-    const [res] = await this.pool().execute<any>(
+    const res = await this.run<any>(
       `DELETE FROM categories WHERE id = ?`,
       [id],
     );

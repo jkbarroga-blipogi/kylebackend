@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { NotFoundException, BadRequestException } from "@nestjs/common";
+import { NotFoundException, BadRequestException, ConflictException } from "@nestjs/common";
 
 import { ShelterService } from "../src/shelter/shelter.service";
 import { cannedDb, normSql, type CapturedQuery } from "./helpers/fake-db";
@@ -190,5 +190,25 @@ describe("ShelterService generic CRUD", () => {
       "INSERT INTO `Adopter` (`first_name`, `last_name`, `phone`, `address`, `email`) VALUES (?, ?, ?, ?, ?)",
     );
     expect(captured[0].params).toEqual(["Ana", "Reyes", "1", "x", null]);
+  });
+});
+
+describe("ShelterService error mapping (V5)", () => {
+  it("maps deadlocks to Conflict with a stable message", async () => {
+    const { service } = setup([
+      { kind: "error", error: { code: "ER_LOCK_DEADLOCK" } },
+    ]);
+    await expect(service.findAll("staff")).rejects.toThrow(
+      new ConflictException("The record is busy — please try again"),
+    );
+  });
+
+  it("maps field-shape errors to BadRequest", async () => {
+    const { service } = setup([
+      { kind: "error", error: { code: "ER_DATA_TOO_LONG" } },
+    ]);
+    await expect(service.findAll("staff")).rejects.toThrow(
+      new BadRequestException("Check field values, lengths, and dates"),
+    );
   });
 });

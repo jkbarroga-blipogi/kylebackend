@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { ResultSetHeader } from 'mysql2';
+import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { DatabaseService } from '../database/database.service';
+import { translateSqlError } from '../database/sql-errors';
 import * as bcrypt from 'bcryptjs';
 
 type Actor = { id: number; role: string };
@@ -18,10 +19,29 @@ export class UsersService {
     return this.db.getPool();
   }
 
+  /** Single execution path for user queries: maps driver errors to HTTP outcomes. */
+  private async run<T extends RowDataPacket[] | ResultSetHeader>(
+    sql: string,
+    values: (string | number | null)[] = [],
+  ): Promise<T> {
+    try {
+      const [result] = await this.pool().execute<T>(sql, values);
+      return result;
+    } catch (error) {
+      const mapped = translateSqlError(error);
+
+      if (mapped !== null) {
+        throw mapped;
+      }
+
+      throw error;
+    }
+  }
+
   async createUser(username: string, password: string, role = 'user') {
     const hashed = await bcrypt.hash(password, 10);
 
-    const [result] = await this.pool().execute<ResultSetHeader>(
+    const result = await this.run<ResultSetHeader>(
       `INSERT INTO users (username, password, role) VALUES (?, ?, ?)`,
       [username, hashed, role],
     );
@@ -30,7 +50,7 @@ export class UsersService {
   }
 
   async findByUsername(username: string) {
-    const [rows] = await this.pool().execute<any[]>(
+    const rows = await this.run<any[]>(
       `SELECT id, username, password, role, refresh_token FROM users WHERE username = ?`,
       [username],
     );
@@ -39,7 +59,7 @@ export class UsersService {
   }
 
   async findById(id: number) {
-    const [rows] = await this.pool().execute<any[]>(
+    const rows = await this.run<any[]>(
       `SELECT id, username, role, created_at FROM users WHERE id = ?`,
       [id],
     );
@@ -48,7 +68,7 @@ export class UsersService {
   }
 
   async getAll() {
-    const [rows] = await this.pool().execute<any[]>(
+    const rows = await this.run<any[]>(
       `SELECT id, username, role, created_at FROM users`,
     );
 
@@ -90,13 +110,13 @@ export class UsersService {
 
     const sql = `UPDATE users SET ${fields.join(', ')} WHERE id = ?`;
 
-    await this.pool().execute(sql, values);
+    await this.run(sql, values);
 
     return this.findById(id);
   }
 
   async deleteUser(id: number) {
-    const [res] = await this.pool().execute<any>(
+    const res = await this.run<any>(
       `DELETE FROM users WHERE id = ?`,
       [id],
     );
@@ -105,14 +125,14 @@ export class UsersService {
   }
 
   async setRefreshToken(id: number, refreshToken: string | null) {
-    await this.pool().execute(
+    await this.run(
       `UPDATE users SET refresh_token = ? WHERE id = ?`,
       [refreshToken, id],
     );
   }
 
   async findByRefreshToken(refreshToken: string) {
-    const [rows] = await this.pool().execute<any[]>(
+    const [rows] = await this.run<any[]>(
       `SELECT id, username, role FROM users WHERE refresh_token = ?`,
       [refreshToken],
     );
