@@ -12,7 +12,7 @@ import { inTx } from './tx';
 type AdoptionStatusRow = { adoption_status: unknown };
 
 /** Locks the Animal row to keep two requests from taking the same animal at once. */
-async function lockAnimalRow(conn: PoolConnection, animalId: number) {
+export async function lockAnimalRow(conn: PoolConnection, animalId: number) {
   const [animalRows] = await conn.execute<RowDataPacket[]>(
     'SELECT `animal_id`, `adoption_status` FROM `Animal` WHERE `animal_id` = ? FOR UPDATE',
     [animalId],
@@ -27,7 +27,7 @@ async function lockAnimalRow(conn: PoolConnection, animalId: number) {
   return animal;
 }
 
-async function assertAnimalNotAdopted(
+export async function assertAnimalNotAdopted(
   conn: PoolConnection,
   animalId: number,
   adoptionStatus: unknown,
@@ -54,7 +54,7 @@ function isAdoptedApplicationStatus(status: unknown) {
   );
 }
 
-async function assertNoOtherAdoptedApplication(
+export async function assertNoOtherAdoptedApplication(
   conn: PoolConnection,
   animalId: number,
   ignoreApplicationId: number,

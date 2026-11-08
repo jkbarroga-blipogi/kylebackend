@@ -9,6 +9,7 @@ import {
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { parseLogin, parseRegistration, parseRefresh } from './auth.validation';
 
 type AuthenticatedRequest = { user: { userId: number; username: string; role: string } };
 
@@ -21,12 +22,14 @@ export class AuthController {
   ) {}
 
   @Post('register')
-  async register(@Body() body: { username: string; password: string }) {
+  async register(@Body() input: unknown) {
+    const body = parseRegistration(input);
     return this.usersService.createUser(body.username, body.password);
   }
 
   @Post('login')
-  async login(@Body() body: { username: string; password: string }) {
+  async login(@Body() input: unknown) {
+    const body = parseLogin(input);
     const user = await this.authService.validateUser(
       body.username,
       body.password,
@@ -48,7 +51,8 @@ export class AuthController {
   }
 
   @Post('refresh')
-  async refresh(@Body() body: { refreshToken: string }) {
+  async refresh(@Body() input: unknown) {
+    const body = parseRefresh(input);
     return this.authService.refreshTokens(body.refreshToken);
   }
 }

@@ -2,81 +2,98 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Shelter Admin — Frontend</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='44'%3E%F0%9F%90%BE%3C/text%3E%3C/svg%3E">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0d13">
+  <meta name="description" content="Barroga shelter workspace. A clear view of animal care, applications, and adoptions.">
+  <meta name="api-base" content="https://kylebackend.onrender.com">
+  <title>Barroga | Shelter workspace</title>
+  <link rel="icon" href="mark.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <script type="module" src="app.js"></script>
 </head>
 <body>
+  <a class="skip-link" href="#main">Skip to workspace</a>
+  <div id="announcer" class="sr-only" role="status" aria-live="polite"></div>
 
-  <!-- ================= LOGIN VIEW ================= -->
-  <div id="view-login" class="login-wrap">
-    <div class="login-card">
-      <div class="login-logo">🐾</div>
-      <h1>Shelter Admin</h1>
-      <p class="login-sub">Admin panel for the NestJS + MySQL backend</p>
-
-      <label class="field-label">API URL</label>
-      <input id="login-api" type="text" value="https://kylebackend.onrender.com" spellcheck="false">
-
-      <label class="field-label">Username</label>
-      <input id="login-user" type="text" autocomplete="username">
-
-      <label class="field-label">Password</label>
-      <input id="login-pass" type="password" autocomplete="current-password">
-
-      <button id="btn-login" class="btn primary block">Log in</button>
-      <button id="btn-register" class="btn ghost block">Register new account</button>
-      <button id="btn-test" class="btn quiet block">Test connection</button>
-
-      <p id="login-msg" class="login-msg"></p>
-    </div>
+  <div id="view-login" class="login-layout">
+    <section class="login-story" aria-label="About Barroga">
+      <a class="brand" href="./"><img src="mark.svg" alt="" width="40" height="40"><span>barroga<span class="brand-caption">Shelter workspace</span></span></a>
+      <div class="story-content">
+        <span class="eyebrow"><span class="small-line"></span> Care, connected.</span>
+        <h2>A little care.<br>A better <span>tomorrow.</span></h2>
+        <p>One place for the animals you care for,<br class="desktop-break"> the people who help, and every new beginning.</p>
+        <div class="care-path" aria-label="Shelter care journey">
+          <div><span class="path-number">01</span><span><strong>A safe arrival</strong><small>Give every animal a place to start.</small></span><span class="path-mark" aria-hidden="true">+</span></div>
+          <div><span class="path-number">02</span><span><strong>Care that stays connected</strong><small>Keep records and your team in step.</small></span><span class="path-mark" aria-hidden="true">+</span></div>
+          <div><span class="path-number">03</span><span><strong>A place to belong</strong><small>Help the next chapter begin.</small></span><span class="path-mark" aria-hidden="true">+</span></div>
+        </div>
+      </div>
+      <p class="story-footer">Made for the everyday work of making a difference.</p>
+    </section>
+    <main id="main" class="login-main" tabindex="-1">
+      <div class="login-card">
+        <span class="eyebrow">Your shelter, in view</span>
+        <h1 id="login-title">Welcome back.</h1>
+        <p id="login-intro" class="login-intro">Sign in to your Barroga workspace.</p>
+        <form id="login-form">
+          <div class="field"><label for="login-user">Username</label><input id="login-user" name="username" autocomplete="username" maxlength="255" required placeholder="Enter your username" autocapitalize="none" spellcheck="false"></div>
+          <div class="field"><label for="login-pass">Password</label><div class="password-control"><input id="login-pass" name="password" type="password" autocomplete="current-password" required placeholder="Enter your password"><button id="toggle-password" type="button" aria-label="Show password" aria-pressed="false">Show</button></div></div>
+          <div id="register-field" class="field" hidden><label for="register-confirm">Confirm password</label><input id="register-confirm" name="confirm-password" type="password" autocomplete="new-password" required disabled placeholder="Enter your password again"></div>
+          <p id="login-msg" class="message" role="status" hidden></p>
+          <button id="btn-login" class="btn primary block" type="submit">Sign in <span aria-hidden="true">&#8594;</span></button>
+        </form>
+        <p class="session-note">Your session stays in this tab. Sign in again after a reload.</p>
+        <div class="login-help"><button id="btn-register" class="btn secondary block" type="button">Create an adopter account</button><p>Shelter team member? Ask your administrator to arrange staff access.</p></div>
+        <details id="connection-settings" class="connection-settings">
+          <summary>Connection settings</summary>
+          <div class="field"><label for="login-api">API URL</label><input id="login-api" type="url" value="https://kylebackend.onrender.com" spellcheck="false" aria-describedby="connection-hint" readonly><small id="connection-hint">This workspace connects to your shelter API.</small></div>
+          <button id="btn-test" class="btn secondary" type="button">Test connection</button>
+          <p id="connection-message" class="message" role="status" hidden></p>
+        </details>
+      </div>
+      <div class="login-bottom"><span class="connection-dot" aria-hidden="true"></span> Barroga shelter management</div>
+    </main>
   </div>
 
-  <!-- ================= APP VIEW ================= -->
-  <div id="view-app" class="app" hidden>
-
-    <header class="topbar">
-      <span class="topbar-brand">🐾 Shelter Admin</span>
-      <span id="topbar-api" class="topbar-api" title="API URL — click to change"></span>
-      <span class="spacer"></span>
-      <i id="topbar-avatar" class="avatar" aria-hidden="true"></i>
-      <span id="topbar-user" class="topbar-user"></span>
-      <button id="btn-logout" class="btn ghost sm">Log out</button>
-    </header>
-
-    <div class="layout">
-      <nav id="sidebar" class="sidebar"><!-- tabs generated by app.js --></nav>
-
-      <main class="content">
-        <div class="panel toolrow">
-          <h2 id="res-title" class="res-title">—</h2>
-          <span class="spacer"></span>
-          <input id="search" type="search" placeholder="Search…" class="search">
-          <button id="btn-reload" class="btn sm">Reload</button>
-          <button id="btn-add" class="btn primary sm">+ Add new</button>
-        </div>
-
-        <div class="grid-2" id="work-grid">
-          <section class="panel">
-            <div id="table-wrap" class="table-wrap"><p class="muted pad">Choose a tab on the left, or press reload.</p></div>
-          </section>
-
-          <section class="panel" id="form-panel" hidden>
-            <h3 id="form-title" class="form-title">Add record</h3>
-            <form id="form"></form>
-            <div class="form-actions">
-              <button id="btn-save" class="btn primary">Save</button>
-              <button id="btn-cancel" class="btn ghost">Cancel</button>
+  <div id="view-app" class="app-shell" hidden>
+    <aside class="sidebar-shell">
+      <a class="brand" href="?resource=overview" data-resource="overview"><img src="mark.svg" alt="" width="36" height="36"><span>barroga<span class="brand-caption">Shelter workspace</span></span></a>
+      <button id="nav-toggle" class="btn secondary nav-toggle" aria-expanded="false" aria-controls="sidebar" type="button">Menu</button>
+      <nav id="sidebar" aria-label="Workspace navigation"></nav>
+      <div class="sidebar-footer"><span class="connection-dot" aria-hidden="true"></span><div><strong>Care starts here.</strong><small>Every record. Every new beginning.</small></div></div>
+    </aside>
+    <div class="workspace">
+      <header class="topbar">
+        <div class="breadcrumbs"><span>Shelter workspace</span><span aria-hidden="true">/</span><strong id="breadcrumb">Overview</strong></div>
+        <div class="account"><span id="topbar-avatar" class="avatar" aria-hidden="true"></span><div><strong id="topbar-user"></strong><small id="topbar-role"></small></div><button id="btn-logout" class="btn quiet" type="button">Sign out</button></div>
+      </header>
+      <main id="workspace-main" class="content" tabindex="-1">
+        <div class="page-heading"><div><p id="page-eyebrow" class="eyebrow">The day at a glance</p><h1 id="res-title" tabindex="-1">Overview</h1><p id="res-description" class="page-description"></p></div><div class="heading-actions"><span id="today" class="date-label"></span><button id="btn-add" class="btn primary" type="button" hidden>Add animal</button></div></div>
+        <p id="page-message" class="message" role="status" hidden></p>
+        <section id="access-panel" class="panel empty" hidden><h2>Access is not set up yet.</h2><p>Your account is signed in. Ask your administrator to provision a shelter role.</p></section>
+        <div id="page-content" aria-busy="false">
+          <section id="overview" aria-label="Shelter overview"></section>
+          <section id="adopter-view" aria-label="Adopter workspace" hidden></section>
+          <section id="adoption-followup" class="panel followup" aria-labelledby="followup-title" hidden><div><h2 id="followup-title">Adoption saved. One step to finish.</h2><p>Mark the linked application Adopted to reject other open applications for this animal.</p><p id="followup-message" class="message" role="status" hidden></p></div><button id="btn-finalize" class="btn primary" type="button">Mark application adopted</button></section>
+          <div id="records-view" hidden>
+            <div id="work-grid" class="work-grid">
+              <section id="form-panel" class="panel editor" aria-labelledby="form-title" hidden></section>
+              <section class="panel records-panel" aria-label="Records">
+                <div class="table-toolbar"><div class="search-field"><label class="sr-only" for="search">Search records</label><span id="search-icon" aria-hidden="true"></span><input id="search" type="search" placeholder="Search records..."></div><div class="toolbar-end"><span id="record-count" class="muted"></span><button id="btn-reload" class="btn secondary" type="button">Reload</button></div></div>
+                <div id="table-wrap" class="table-wrap" role="region" aria-label="Record table, scroll horizontally for more columns" tabindex="0"></div>
+                <div class="table-footer"><span id="table-summary"></span><span id="last-updated"></span></div>
+              </section>
             </div>
-          </section>
+          </div>
         </div>
+        <footer class="workspace-footer"><span>Barroga <span aria-hidden="true">/</span> A home for better care.</span><span id="api-label"></span></footer>
       </main>
     </div>
   </div>
 
-  <div id="toast" class="toast" hidden></div>
-
-  <script src="app.js"></script>
+  <dialog id="delete-dialog" aria-labelledby="delete-title" aria-describedby="delete-description">
+    <form id="delete-form"><span class="eyebrow">Delete record</span><h2 id="delete-title">Delete this record?</h2><p id="delete-description"></p><p id="delete-message" class="message" role="alert" hidden></p><div class="form-actions"><button id="delete-cancel" class="btn secondary" type="button" autofocus>Cancel</button><button id="delete-confirm" class="btn destructive" type="submit">Delete record</button></div></form>
+  </dialog>
+  <noscript><p class="message">Enable JavaScript to sign in and manage shelter records.</p></noscript>
 </body>
 </html>

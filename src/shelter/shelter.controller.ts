@@ -8,13 +8,22 @@ import {
   Post,
   Put,
   UseGuards,
+  Request,
+  ForbiddenException,
 } from '@nestjs/common';
 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ShelterService } from './shelter.service';
+import { Roles, RolesGuard } from '../auth/roles.guard';
+import type { AuthenticatedRequest } from '../auth/roles.guard';
+
+function requireStaffWriteAccess(resource: string, request: AuthenticatedRequest) {
+  if (resource === 'staff' && request.user.role !== 'admin') throw new ForbiddenException('Only administrators manage Staff records');
+}
 
 @Controller('shelter')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin', 'staff')
 export class ShelterController {
   constructor(private readonly service: ShelterService) {}
 
@@ -35,7 +44,9 @@ export class ShelterController {
   create(
     @Param('resource') resource: string,
     @Body() body: unknown,
+    @Request() request: AuthenticatedRequest,
   ) {
+    requireStaffWriteAccess(resource, request);
     return this.service.create(resource, body);
   }
 
@@ -44,7 +55,9 @@ export class ShelterController {
     @Param('resource') resource: string,
     @Param('id', ParseIntPipe) id: number,
     @Body() body: unknown,
+    @Request() request: AuthenticatedRequest,
   ) {
+    requireStaffWriteAccess(resource, request);
     return this.service.update(resource, id, body);
   }
 
@@ -52,7 +65,9 @@ export class ShelterController {
   remove(
     @Param('resource') resource: string,
     @Param('id', ParseIntPipe) id: number,
+    @Request() request: AuthenticatedRequest,
   ) {
+    requireStaffWriteAccess(resource, request);
     return this.service.remove(resource, id);
   }
 }
