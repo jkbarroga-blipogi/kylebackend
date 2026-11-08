@@ -21,15 +21,17 @@ function captureOf(canned: ReturnType<typeof cannedDb>): CapturedQuery[] {
 describe("users boundary (V6)", () => {
   it("rejects role changes from the HTTP surface", async () => {
     const { users } = setup([]);
+    const payload = { username: "x", role: "admin" };
     await expect(
-      users.updateUser(1, { username: "x", role: "admin" }, { id: 1, role: "user" }),
+      users.updateUser(1, payload, { id: 1, role: "user" }),
     ).rejects.toThrow(new BadRequestException("Unknown field: role"));
   });
 
   it("rejects unknown fields by name", async () => {
     const { users } = setup([]);
+    const payload = { password: "x", hacker: "nope" };
     await expect(
-      users.updateUser(1, { password: "x", hacker: "nope" }, { id: 1, role: "user" }),
+      users.updateUser(1, payload, { id: 1, role: "user" }),
     ).rejects.toThrow(new BadRequestException("Unknown field: hacker"));
   });
 
