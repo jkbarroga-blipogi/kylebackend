@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { NotFoundException } from "@nestjs/common";
+import { NotFoundException, BadRequestException } from "@nestjs/common";
 
 import { UsersService } from "../src/users/users.service";
 import { CategoryService } from "../src/category/category.service";
@@ -17,6 +17,50 @@ function captureOf(canned: ReturnType<typeof cannedDb>): CapturedQuery[] {
     canned.conn.execute as unknown as ReturnType<typeof vi.fn>
   ).mock.calls.map((call) => ({ sql: normSql(call[0]), params: [...(call[1] ?? [])] }));
 }
+
+describe("users boundary (V6)", () => {
+  it("rejects role changes from the HTTP surface", async () => {
+    const { users } = setup([]);
+    await expect(
+      users.updateUser(1, { username: "x", role: "admin" }, { id: 1, role: "user" }),
+    ).rejects.toThrow(new BadRequestException("Unknown field: role"));
+  });
+
+  it("rejects unknown fields by name", async () => {
+    const { users } = setup([]);
+    await expect(
+      users.updateUser(1, { password: "x", hacker: "nope" }, { id: 1, role: "user" }),
+    ).rejects.toThrow(new BadRequestException("Unknown field: hacker"));
+  });
+
+  it("enforces self or admin on update", async () => {
+    const { users, pool } = setup([]);
+    await expect(
+      users.updateUser(1, { username: "target" }, { id: 7, role: "user" }),
+    ).rejects.toThrow(new NotFoundException("User not found"));
+    expect((pool.execute as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBe(0);
+  });
+
+  it("allows self update", async () => {
+    const canned = setup([
+      { kind: "header", insertId: 0, affectedRows: 1 },
+      { kind: "rows", rows: [{ id: 7, username: "ana2", role: "user" }] },
+    ]);
+    await canned.users.updateUser(7, { username: "ana2" }, { id: 7, role: "user" });
+    const captured = captureOf(canned);
+    expect(captured[0].sql).toBe("UPDATE users SET username = ? WHERE id = ?");
+  });
+
+  it("allows admin update of other users", async () => {
+    const canned = setup([
+      { kind: "header", insertId: 0, affectedRows: 1 },
+      { kind: "rows", rows: [{ id: 1, username: "ana", role: "user" }] },
+    ]);
+    await canned.users.updateUser(1, { username: "ana" }, { id: 9, role: "admin" });
+    const captured = captureOf(canned);
+    expect(captured[0].sql).toBe("UPDATE users SET username = ? WHERE id = ?");
+  });
+});
 
 describe("UsersService SQL contract", () => {
   it("hashes passwords and inserts with role defaults", async () => {
@@ -49,7 +93,11 @@ describe("UsersService SQL contract", () => {
       { kind: "header", insertId: 0, affectedRows: 1 },
       { kind: "rows", rows: [{ id: 1, username: "ana2", role: "user" }] },
     ]);
-    await canned.users.updateUser(1, { username: "ana2", password: "newpass" });
+    await canned.users.updateUser(
+      1,
+      { username: "ana2", password: "newpass" },
+      { id: 1, role: "user" },
+    );
 
     const captured = captureOf(canned);
     expect(captured.length).toBe(2);

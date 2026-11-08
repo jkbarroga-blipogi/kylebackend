@@ -1,7 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ResultSetHeader } from 'mysql2';
 import { DatabaseService } from '../database/database.service';
 import * as bcrypt from 'bcryptjs';
+
+type Actor = { id: number; role: string };
+
+type UserMutationFields = {
+  username?: string;
+  password?: string;
+};
 
 @Injectable()
 export class UsersService {
@@ -48,26 +55,33 @@ export class UsersService {
     return rows;
   }
 
+  /**
+   * Roles are assigned through the token layer only. HTTP clients may
+   * change their own username and password; admins may do it for others.
+   */
   async updateUser(
     id: number,
-    partial: { username?: string; password?: string; role?: string },
+    partial: UserMutationFields,
+    actor: Actor,
   ) {
+    if (actor.role !== 'admin' && actor.id !== id) {
+      throw new NotFoundException('User not found');
+    }
+
+    const body = (partial ?? {}) as Record<string, unknown>;
     const fields: string[] = [];
-    const values: any[] = [];
+    const values: (string | number)[] = [];
 
-    if (partial.username) {
-      fields.push('username = ?');
-      values.push(partial.username);
-    }
+    for (const [key, value] of Object.entries(body)) {
+      if ((key === 'username' || key === 'password') && typeof value === 'string' && value.trim()) {
+        fields.push(`${key} = ?`);
+        values.push(
+          key === 'password' ? await bcrypt.hash(value, 10) : value.trim(),
+        );
+        continue;
+      }
 
-    if (partial.password) {
-      fields.push('password = ?');
-      values.push(await bcrypt.hash(partial.password, 10));
-    }
-
-    if (partial.role) {
-      fields.push('role = ?');
-      values.push(partial.role);
+      throw new BadRequestException(`Unknown field: ${key}`);
     }
 
     if (fields.length === 0) return await this.findById(id);

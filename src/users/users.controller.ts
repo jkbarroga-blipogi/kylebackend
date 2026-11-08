@@ -5,11 +5,17 @@ import {
   Delete,
   Body,
   Param,
+  ParseIntPipe,
   UseGuards,
+  Request,
 } from '@nestjs/common';
 
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+
+type AuthenticatedRequest = {
+  user: { userId: number; username: string; role: string };
+};
 
 @Controller('users')
 export class UsersController {
@@ -25,21 +31,29 @@ export class UsersController {
   // Get single user by id (protected)
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  async getOne(@Param('id') id: string) {
-    return this.usersService.findById(+id);
+  async getOne(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.findById(id);
   }
 
-  // Update user (protected)
+  // Update user (protected: self or admin only)
   @UseGuards(JwtAuthGuard)
   @Put(':id')
-  async update(@Param('id') id: string, @Body() body: any) {
-    return this.usersService.updateUser(+id, body);
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { username?: string; password?: string },
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.usersService.updateUser(
+      id,
+      body,
+      { id: req.user.userId, role: req.user.role },
+    );
   }
 
   // Delete user (protected)
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  async remove(@Param('id') id: string) {
-    return this.usersService.deleteUser(+id);
+  async remove(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.deleteUser(id);
   }
 }

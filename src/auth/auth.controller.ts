@@ -1,6 +1,16 @@
-import { Controller, Post, Body, UseGuards, Request, Get } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  Request,
+  Get,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
+import { JwtAuthGuard } from './jwt-auth.guard';
+
+type AuthenticatedRequest = { user: { userId: number; username: string; role: string } };
 
 @Controller('auth')
 export class AuthController {
@@ -29,9 +39,12 @@ export class AuthController {
     return this.authService.login(user);
   }
 
+  // Logout clears only the caller's own refresh token. The identity
+  // comes from the JWT; the request body is never trusted for it.
+  @UseGuards(JwtAuthGuard)
   @Post('logout')
-  async logout(@Body() body: { userId: number }) {
-    return this.authService.logout(body.userId);
+  async logout(@Request() req: AuthenticatedRequest) {
+    return this.authService.logout(req.user.userId);
   }
 
   @Post('refresh')

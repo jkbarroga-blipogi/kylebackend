@@ -238,6 +238,63 @@ describe("breed contract", () => {
   });
 });
 
+describe("animal payload validation (V6)", () => {
+  it("rejects unknown fields with names", async () => {
+    const { service, pool } = setup([]);
+    await expect(
+      service.create({ breed_id: 2, animal_name: "Bantay", sex: "M", arrival_date: "2025-01-10", stolen_field: "nope" }),
+    ).rejects.toThrow(new BadRequestException("Unknown field: stolen_field"));
+    expect((pool.execute as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBe(0);
+  });
+
+  it("rejects missing create fields", async () => {
+    const { service, pool } = setup([]);
+    await expect(
+      service.create({ breed_id: 2, animal_name: "Bantay" }),
+    ).rejects.toThrow(
+      new BadRequestException("Required: breed_id, animal_name, sex, arrival_date"),
+    );
+    expect((pool.execute as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBe(0);
+  });
+
+  it("rejects non-numeric _id columns", async () => {
+    const { service } = setup([]);
+    await expect(
+      service.create({ breed_id: "two", animal_name: "Bantay", sex: "M", arrival_date: "2025-01-10" }),
+    ).rejects.toThrow(new BadRequestException("breed_id must be a number"));
+  });
+
+  it("rejects blank text columns", async () => {
+    const { service } = setup([]);
+    await expect(
+      service.create({ breed_id: 2, animal_name: "   ", sex: "M", arrival_date: "2025-01-10" }),
+    ).rejects.toThrow(new BadRequestException("animal_name cannot be empty"));
+  });
+
+  it("rejects malformed dates", async () => {
+    const { service } = setup([]);
+    await expect(
+      service.create({ breed_id: 2, animal_name: "Bantay", sex: "M", arrival_date: "2025-13-40" }),
+    ).rejects.toThrow(
+      new BadRequestException("arrival_date must be a valid YYYY-MM-DD date"),
+    );
+  });
+
+  it("rejects empty patches on update", async () => {
+    const { service } = setup([]);
+    await expect(service.update(7, {})).rejects.toThrow(
+      new BadRequestException("No valid fields to update"),
+    );
+  });
+
+  it("rejects unknown fields on update", async () => {
+    const { service } = setup([]);
+    await expect(service.update(7, { hacker: "nope" })).rejects.toThrow(
+      new BadRequestException("Unknown field: hacker"),
+    );
+  });
+});
+
 describe("animal contract", () => {
   it("reports missing animals", async () => {
     const { service } = setup([{ kind: "rows", rows: [] }]);
@@ -285,10 +342,9 @@ describe("animal contract", () => {
       animal_name: "Bantay",
       sex: "M",
       arrival_date: "2025-01-10",
-      stolen_field: "nope",
     });
 
-    expect(Object.keys(row)).not.toContain("stolen_field");
+    expect(row.adoption_status).toBe("Available");
 
     const captured = captureOf(canned);
     expect(captured[0].sql).toBe(
@@ -302,7 +358,7 @@ describe("animal contract", () => {
       { kind: "header", insertId: 0, affectedRows: 1 },
       { kind: "rows", rows: [ANIMAL_ROW_7] },
     ]);
-    const row = await canned.service.update(7, { color: "white", hacker: "nope" });
+    const row = await canned.service.update(7, { color: "white" });
 
     expect(row.adoption_status).toBe("Available");
 

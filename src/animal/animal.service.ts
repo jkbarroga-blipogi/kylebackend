@@ -107,6 +107,110 @@ function mapAnimal(row: RowDataPacket): AnimalRow {
   return nestedBreed ? { ...base, breed: nestedBreed } : base;
 }
 
+const ANIMAL_REQUIRED = ['breed_id', 'animal_name', 'sex', 'arrival_date'] as const;
+
+type AnimalRecord = Record<string, unknown>;
+
+/** Shared guard used by both create and update so no client payload reaches SQL unvalidated. */
+function validateAnimalPayload(data: unknown, creating: boolean): string[] {
+  if (
+    !data ||
+    typeof data !== 'object' ||
+    Array.isArray(data)
+  ) {
+    throw new BadRequestException('Send a JSON object');
+  }
+
+  const body = data as AnimalRecord;
+  const unknownField = Object.keys(body).find(
+    (key) => !(ANIMAL_COLUMNS as readonly string[]).includes(key),
+  );
+
+  if (unknownField !== undefined) {
+    throw new BadRequestException(`Unknown field: ${unknownField}`);
+  }
+
+  if (creating) {
+    const missing = ANIMAL_REQUIRED.filter(
+      (key) => body[key] === undefined || body[key] === null,
+    );
+
+    if (missing.length) {
+      throw new BadRequestException(
+        `Required: ${ANIMAL_REQUIRED.join(', ')}`,
+      );
+    }
+  }
+
+  const hasFields = Object.keys(body).length > 0;
+
+  if (creating && !hasFields) {
+    throw new BadRequestException('Send a JSON object');
+  }
+
+  for (const key of Object.keys(body)) {
+    const value = body[key];
+
+    if (value === undefined) {
+      throw new BadRequestException(
+        `${key} must contain a value or be omitted`,
+      );
+    }
+
+    if (key === 'color') {
+      if (value === null) {
+        continue;
+      }
+
+      if (typeof value !== 'string') {
+        throw new BadRequestException(`${key} must be text`);
+      }
+
+      continue;
+    }
+
+    if (key.endsWith('_id')) {
+      if (typeof value !== 'number' || !Number.isSafeInteger(value) || value <= 0) {
+        throw new BadRequestException(`${key} must be a number`);
+      }
+
+      continue;
+    }
+
+    if (key.endsWith('_date')) {
+      if (typeof value !== 'string') {
+        throw new BadRequestException(
+          `${key} must be a valid YYYY-MM-DD date`,
+        );
+      }
+
+      const date = new Date(`${value}T00:00:00.000Z`);
+      const isIsoDateString =
+        /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+        Number.isNaN(date.getTime()) === false &&
+        date.toISOString().slice(0, 10) === value;
+
+      if (!isIsoDateString) {
+        throw new BadRequestException(
+          `${key} must be a valid YYYY-MM-DD date`,
+        );
+      }
+
+      continue;
+    }
+
+    if (typeof value !== 'string') {
+      throw new BadRequestException(`${key} must be text`);
+    }
+
+    if (!value.trim()) {
+      throw new BadRequestException(`${key} cannot be empty`);
+    }
+  }
+
+  return Object.keys(body);
+}
+
 @Injectable()
 export class AnimalService {
   constructor(private readonly db: DatabaseService) {}
@@ -353,10 +457,8 @@ export class AnimalService {
 
   // POST
   async create(data: unknown) {
-    const body = (data ?? {}) as Record<string, unknown>;
-    const keys = ANIMAL_COLUMNS.filter(
-      (column) => body[column] !== undefined,
-    );
+    const keys = validateAnimalPayload(data, true);
+    const body = data as AnimalRecord;
 
     return this.lookupWrite(async () => {
       const columns = keys
@@ -401,10 +503,13 @@ export class AnimalService {
 
   // PUT
   async update(id: number, data: unknown) {
-    const body = (data ?? {}) as Record<string, unknown>;
-    const keys = ANIMAL_COLUMNS.filter(
-      (column) => body[column] !== undefined,
-    );
+    const keys = validateAnimalPayload(data, false);
+
+    if (!keys.length) {
+      throw new BadRequestException('No valid fields to update');
+    }
+
+    const body = data as AnimalRecord;
 
     await this.lookupWrite(() => {
       const assignments = keys

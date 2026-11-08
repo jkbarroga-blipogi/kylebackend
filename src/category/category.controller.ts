@@ -1,11 +1,12 @@
 import {
+  Body,
   Controller,
+  Delete,
   Get,
+  Param,
+  ParseIntPipe,
   Post,
   Put,
-  Delete,
-  Body,
-  Param,
   UseGuards,
 } from '@nestjs/common';
 import { CategoryService } from './category.service';
@@ -25,8 +26,8 @@ export class CategoryController {
   // Get single category by id
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  async getOne(@Param('id') id: string) {
-    return this.categoryService.findById(+id);
+  async getOne(@Param('id', ParseIntPipe) id: number) {
+    return this.categoryService.findById(id);
   }
 
   // Create a new category
@@ -40,16 +41,16 @@ export class CategoryController {
   @UseGuards(JwtAuthGuard)
   @Put(':id')
   async update(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() body: { name?: string; description?: string },
   ) {
-    return this.categoryService.updateCategory(+id, body);
+    return this.categoryService.updateCategory(id, body);
   }
 
   // Delete a category
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  async remove(@Param('id') id: string) {
-    return this.categoryService.deleteCategory(+id);
+  async remove(@Param('id', ParseIntPipe) id: number) {
+    return this.categoryService.deleteCategory(id);
   }
 }
