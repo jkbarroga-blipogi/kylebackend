@@ -4,7 +4,8 @@ import { DatabaseService } from "../../src/database/database.service";
 
 export type CannedResult =
   | { kind: "rows"; rows: Record<string, unknown>[] }
-  | { kind: "header"; insertId: number; affectedRows: number };
+  | { kind: "header"; insertId: number; affectedRows: number }
+  | { kind: "error"; error: unknown };
 
 /** Normalizes a captured SQL string: collapses whitespace for stable assert equals. */
 export function normSql(sql: string): string {
@@ -41,6 +42,10 @@ export function cannedDb(results: CannedResult[]) {
 
       if (!result) {
         throw new Error(`Unhandled canned slot for call ${callIndex}`);
+      }
+
+      if (result.kind === "error") {
+        return Promise.reject(result.error);
       }
 
       if (result.kind === "rows") {
