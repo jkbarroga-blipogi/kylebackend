@@ -1,13 +1,11 @@
 import {
   Controller,
   Get,
-  Post,
   Put,
   Delete,
   Body,
   Param,
   UseGuards,
-  Request,
 } from '@nestjs/common';
 
 import { UsersService } from './users.service';
@@ -29,15 +27,6 @@ export class UsersController {
   @Get(':id')
   async getOne(@Param('id') id: string) {
     return this.usersService.findById(+id);
-  }
-
-  // Create user (open - for demo)
-  @Post()
-  async create(@Body() body: { username: string; password: string }) {
-    return this.usersService.createUser(
-      body.username,
-      body.password,
-    );
   }
 
   // Update user (protected)
