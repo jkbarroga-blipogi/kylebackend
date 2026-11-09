@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth-context";
 
 type AnimalRow = {
@@ -11,6 +12,7 @@ type AnimalRow = {
   animal_name: string;
   arrival_date: string;
   adoption_status: string;
+  image_url?: string | null;
 };
 
 function dateValue(value: string | null | undefined): string {
@@ -63,12 +65,16 @@ export function DashboardContent() {
           </Button>
         </Alert>
       ) : null}
-      <div className="grid gap-4">
+      <div className="grid gap-4" role="status" aria-label="Loading dashboard">
         <Card>
           <CardContent className="flex flex-col gap-2 pt-6">
             <p className="text-sm text-muted-foreground">Total animals</p>
-            <p className="text-4xl font-medium tracking-tight tabular-nums">{rows === null ? "Unavailable" : rows.length}</p>
-            <p className="text-xs text-muted-foreground">{rows === null ? "Could not load. Retry to continue." : "Updated just now"}</p>
+            {rows === null && !error ? (
+              <Skeleton className="h-10 w-20" />
+            ) : (
+              <p className="text-4xl font-medium tracking-tight tabular-nums">{rows === null ? "Unavailable" : rows.length}</p>
+            )}
+            <p className="text-xs text-muted-foreground">{rows === null && !error ? "Loading..." : rows === null ? "Could not load. Retry to continue." : "Updated just now"}</p>
           </CardContent>
         </Card>
         <Card>
@@ -79,8 +85,12 @@ export function DashboardContent() {
             </div>
             <a href="?resource=animal" className="inline-flex min-h-8 items-center text-sm no-underline">View all</a>
           </div>
-          {rows === null ? (
-            <p className="p-6 text-sm text-muted-foreground" role="status">Loading animals...</p>
+          {rows === null && !error ? (
+            <div className="grid gap-3 p-6" aria-hidden="true">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-2/3" />
+            </div>
           ) : arrivals.length === 0 ? (
             <div className="p-12 text-center">
               <h3 className="text-lg font-semibold">A fresh start</h3>
@@ -90,7 +100,12 @@ export function DashboardContent() {
             <ul className="list-none px-6 py-2">
               {arrivals.map((animal) => (
                 <li key={animal.animal_id} className="flex items-center gap-3 border-b border-border py-5 last:border-b-0">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-lg border border-border bg-secondary text-[#a5adff]">P</span>
+                  {animal.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={animal.image_url} alt="" className="size-10 shrink-0 rounded-lg border border-border object-cover" />
+                  ) : (
+                    <span className="grid size-10 shrink-0 place-items-center rounded-lg border border-border bg-secondary text-[#a5adff]">P</span>
+                  )}
                   <span className="min-w-0 flex-1">
                     <strong className="block font-medium">{animal.animal_name}</strong>
                     <small className="mt-0.5 block text-muted-foreground">

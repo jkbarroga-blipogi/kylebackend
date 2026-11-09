@@ -35,6 +35,21 @@ describe("adopter ownership and workflow", () => {
     expect(captured[0].sql).not.toMatch(/password|refresh_token|phone|email/);
   });
 
+  it("lists all animals including adopted with the adopter name", async () => {
+    const { service, captured } = setup([
+      row([
+        { animal_id: 5, animal_name: "Luna", adoption_status: "Available", adopter_first_name: null, adopter_last_name: null },
+        { animal_id: 6, animal_name: "Milo", adoption_status: "Adopted", adopter_first_name: "Ana", adopter_last_name: "Cruz" },
+      ]),
+    ]);
+    const rows = await service.listAllAnimals();
+    expect(rows).toHaveLength(2);
+    expect((rows[0] as { adopter_name: unknown }).adopter_name).toBeNull();
+    expect((rows[1] as { adopter_name: unknown }).adopter_name).toBe("Ana Cruz");
+    expect(captured[0].sql).toContain("LEFT JOIN Adoption");
+    expect(captured[0].sql).not.toContain("NOT EXISTS");
+  });
+
   it.each([{ animal_id: 5, adopter_id: 999 }, { animal_id: 5, user_id: 999 }, { animal_id: 5, staff_id: 3 }, { animal_id: 5, application_status: "Adopted" }, { animal_id: "5" }, { animal_id: -1 }])("rejects forged or malformed application fields: %j", async (payload) => {
     const { service, captured } = setup([]);
     await expect(service.createApplication(7, payload)).rejects.toBeInstanceOf(BadRequestException);

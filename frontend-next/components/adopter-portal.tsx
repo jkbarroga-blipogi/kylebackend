@@ -4,19 +4,25 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { dateValue, normalized, type Row } from "@/lib/records";
 
-export type AdopterPageKey = "available-animals" | "my-applications" | "my-details";
+export type AdopterPageKey = "available-animals" | "all-animals" | "my-applications" | "my-details";
 
 const titles: Record<AdopterPageKey, { eyebrow: string; title: string; description: string }> = {
   "available-animals": {
     eyebrow: "Your adoption journey",
     title: "Available animals",
     description: "Find an animal you would like to welcome home.",
+  },
+  "all-animals": {
+    eyebrow: "Your adoption journey",
+    title: "All animals",
+    description: "See every animal in the shelter, adopted or available.",
   },
   "my-applications": {
     eyebrow: "Your adoption journey",
@@ -67,6 +73,7 @@ function AvailableAnimals({ onNavigate }: { onNavigate: (key: string) => void })
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [species, setSpecies] = useState("All");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [uncertain, setUncertain] = useState(false);
@@ -95,7 +102,9 @@ function AvailableAnimals({ onNavigate }: { onNavigate: (key: string) => void })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const speciesOptions = [...new Set(animals.map((animal) => String(animal.species_name ?? "")).filter(Boolean))].sort();
   const visible = animals.filter((animal) => {
+    if (species !== "All" && String(animal.species_name ?? "") !== species) return false;
     const needle = query.trim().toLowerCase();
     if (!needle) return true;
     return [animal.animal_name, animal.breed_name, animal.species_name, animal.color, animal.sex].some((value) =>
@@ -138,7 +147,12 @@ function AvailableAnimals({ onNavigate }: { onNavigate: (key: string) => void })
       ) : null}
       {message ? <Alert>{message}</Alert> : null}
       {!loaded && !error ? (
-        <Card><CardContent className="pt-6 text-center text-sm text-muted-foreground" role="status">Loading available animals...</CardContent></Card>
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label="Loading available animals">
+          <span className="sr-only">Loading available animals...</span>
+          {[0, 1, 2].map((index) => (
+            <Card key={index} aria-hidden="true"><CardContent className="grid gap-3 pt-6"><Skeleton className="size-14 rounded-xl" /><Skeleton className="h-6 w-2/3" /><Skeleton className="h-4 w-full" /><Skeleton className="h-11 w-full" /></CardContent></Card>
+          ))}
+        </div>
       ) : (
         <>
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -148,6 +162,22 @@ function AvailableAnimals({ onNavigate }: { onNavigate: (key: string) => void })
             </div>
             <p className="text-sm text-muted-foreground">{visible.length} of {animals.length} animals</p>
           </div>
+          {speciesOptions.length > 0 ? (
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by species">
+              {["All", ...speciesOptions].map((option) => (
+                <Button
+                  key={option}
+                  type="button"
+                  variant={species === option ? "default" : "secondary"}
+                  size="sm"
+                  aria-pressed={species === option}
+                  onClick={() => setSpecies(option)}
+                >
+                  {option === "All" ? "All species" : option}
+                </Button>
+              ))}
+            </div>
+          ) : null}
           {selected ? (
             <Card className="border-[#55517b]">
               <CardContent className="pt-6">
@@ -192,10 +222,15 @@ function AvailableAnimals({ onNavigate }: { onNavigate: (key: string) => void })
               return (
                 <Card key={animal.animal_id as number}>
                   <CardContent className="flex flex-col pt-6">
-                    <div className="mb-6 flex items-center justify-between gap-4">
-                      <span className="grid size-14 place-items-center rounded-xl border border-border bg-secondary text-[#a5adff]">P</span>
-                      <Badge value="Available" />
-                    </div>
+                    {typeof animal.image_url === "string" && animal.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={animal.image_url} alt={String(animal.animal_name)} className="mb-4 aspect-[4/3] w-full rounded-lg border border-border object-cover" />
+                    ) : (
+                      <div className="mb-6 flex items-center justify-between gap-4">
+                        <span className="grid size-14 place-items-center rounded-xl border border-border bg-secondary text-[#a5adff]">P</span>
+                        <Badge value="Available" />
+                      </div>
+                    )}
                     <p className="text-xs font-semibold tracking-[0.13em] text-muted-foreground uppercase">
                       {String(animal.species_name)} / {String(animal.animal_id)}
                     </p>
@@ -235,9 +270,219 @@ function AvailableAnimals({ onNavigate }: { onNavigate: (key: string) => void })
   );
 }
 
+function AllAnimals({ onNavigate }: { onNavigate: (key: string) => void }) {
+  const { request } = useAuth();
+  const [animals, setAnimals] = useState<Row[]>([]);
+  const [applications, setApplications] = useState<Row[]>([]);
+  const [profile, setProfile] = useState<Row | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [species, setSpecies] = useState("All");
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [uncertain, setUncertain] = useState(false);
+  const [message, setMessage] = useState("");
+
+  async function load() {
+    setError("");
+    try {
+      const [animalData, applicationData, profileData] = await Promise.all([
+        request("adopter/all-animals"),
+        request("adopter/applications"),
+        request("adopter/profile"),
+      ]);
+      if (!Array.isArray(animalData) || !Array.isArray(applicationData)) throw new Error("Unexpected adopter response. Reload to try again.");
+      setAnimals(animalData as Row[]);
+      setApplications(applicationData as Row[]);
+      setProfile(profileData && typeof profileData === "object" ? (profileData as Row) : null);
+      setLoaded(true);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Animals could not load. Reload to try again.");
+    }
+  }
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const speciesOptions = [...new Set(animals.map((animal) => String(animal.species_name ?? "")).filter(Boolean))].sort();
+  const visible = animals.filter((animal) => {
+    if (species !== "All" && String(animal.species_name ?? "") !== species) return false;
+    const needle = query.trim().toLowerCase();
+    if (!needle) return true;
+    return [animal.animal_name, animal.breed_name, animal.species_name, animal.color, animal.sex].some((value) =>
+      String(value ?? "").toLowerCase().includes(needle),
+    );
+  });
+  const selected = animals.find((animal) => animal.animal_id === selectedId) ?? null;
+  const openApplication = (animalId: number) =>
+    applications.find(
+      (entry) => entry.animal_id === animalId && !["rejected", "cancelled", "canceled"].includes(normalized(entry.application_status)),
+    );
+
+  async function submitApplication() {
+    if (!selected || busy || uncertain) return;
+    setBusy(true);
+    setMessage("Submitting your application...");
+    try {
+      const result = (await request("adopter/applications", { method: "POST", body: { animal_id: selected.animal_id } })) as Row;
+      setUncertain(true);
+      setSelectedId(null);
+      setMessage(`Application ${result.application_id} submitted for ${result.animal_name}. Reload My applications for current status.`);
+      onNavigate("my-applications");
+    } catch (submitError) {
+      const apiError = submitError instanceof ApiError ? submitError : new ApiError(submitError instanceof Error ? submitError.message : "Submission failed.");
+      setUncertain(apiError.uncertain);
+      setMessage(apiError.message + (apiError.uncertain ? " Check My applications before submitting again." : ""));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="grid gap-6">
+      <PageHeading pageKey="all-animals" />
+      {error ? (
+        <Alert variant="destructive">
+          {error}{" "}
+          <Button type="button" variant="secondary" size="sm" className="ml-2" onClick={() => void load()}>Retry</Button>
+        </Alert>
+      ) : null}
+      {message ? <Alert>{message}</Alert> : null}
+      {!loaded && !error ? (
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label="Loading all animals">
+          <span className="sr-only">Loading all animals...</span>
+          {[0, 1, 2].map((index) => (
+            <Card key={index} aria-hidden="true"><CardContent className="grid gap-3 pt-6"><Skeleton className="aspect-[4/3] w-full" /><Skeleton className="h-6 w-2/3" /><Skeleton className="h-4 w-full" /><Skeleton className="h-11 w-full" /></CardContent></Card>
+          ))}
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="grid min-w-0 flex-1 gap-2 md:max-w-[340px]">
+              <Label htmlFor="all-animal-search" className="sr-only">Search all animals</Label>
+              <Input id="all-animal-search" type="search" placeholder="Name, breed, or species..." value={query} onChange={(event) => setQuery(event.target.value)} />
+            </div>
+            <p className="text-sm text-muted-foreground">{visible.length} of {animals.length} animals</p>
+          </div>
+          {speciesOptions.length > 0 ? (
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by species">
+              {["All", ...speciesOptions].map((option) => (
+                <Button
+                  key={option}
+                  type="button"
+                  variant={species === option ? "default" : "secondary"}
+                  size="sm"
+                  aria-pressed={species === option}
+                  onClick={() => setSpecies(option)}
+                >
+                  {option === "All" ? "All species" : option}
+                </Button>
+              ))}
+            </div>
+          ) : null}
+          {selected ? (
+            <Card className="border-[#55517b]">
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold tracking-[0.13em] text-muted-foreground uppercase">Your selected animal</p>
+                    <h2 className="mt-2 text-xl font-semibold">Apply for {String(selected.animal_name)}</h2>
+                  </div>
+                  <Button type="button" variant="ghost" onClick={() => setSelectedId(null)}>Close</Button>
+                </div>
+                {profile ? (
+                  <>
+                    <p className="mt-4 text-sm text-muted-foreground">Your application uses the contact details below.</p>
+                    <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+                      <div><dt className="text-sm text-muted-foreground">Name</dt><dd className="text-sm">{String(profile.first_name)} {String(profile.last_name)}</dd></div>
+                      <div><dt className="text-sm text-muted-foreground">Phone</dt><dd className="text-sm">{String(profile.phone)}</dd></div>
+                      <div className="sm:col-span-2"><dt className="text-sm text-muted-foreground">Address</dt><dd className="text-sm">{String(profile.address)}</dd></div>
+                    </dl>
+                    <div className="mt-6 flex flex-wrap gap-3">
+                      <Button type="button" variant="secondary" onClick={() => onNavigate("my-details")}>Edit my details</Button>
+                      <Button type="button" disabled={busy || uncertain} onClick={() => void submitApplication()}>
+                        {busy ? "Submitting..." : "Submit application"}
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="mt-4 text-sm text-muted-foreground">Save your contact details before submitting an application for {String(selected.animal_name)}.</p>
+                    <Button type="button" className="mt-4" onClick={() => onNavigate("my-details")}>Add contact details</Button>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          ) : null}
+          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            {visible.map((animal) => {
+              const submitted = openApplication(animal.animal_id as number);
+              const isAvailable = normalized(animal.adoption_status) === "available";
+              return (
+                <Card key={animal.animal_id as number}>
+                  <CardContent className="flex flex-col pt-6">
+                    {typeof animal.image_url === "string" && animal.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={animal.image_url} alt={String(animal.animal_name)} className="mb-4 aspect-[4/3] w-full rounded-lg border border-border object-cover" />
+                    ) : (
+                      <div className="mb-6 flex items-center justify-between gap-4">
+                        <span className="grid size-14 place-items-center rounded-xl border border-border bg-secondary text-[#a5adff]">P</span>
+                        <Badge value={String(animal.adoption_status)} />
+                      </div>
+                    )}
+                    <p className="text-xs font-semibold tracking-[0.13em] text-muted-foreground uppercase">
+                      {String(animal.species_name)} / {String(animal.animal_id)}
+                    </p>
+                    <h2 className="mt-2 text-2xl font-semibold">{String(animal.animal_name)}</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">{String(animal.breed_name)}</p>
+                    {!isAvailable && animal.adopter_name ? (
+                      <p className="mt-2 text-sm text-muted-foreground">Adopted by {String(animal.adopter_name)}</p>
+                    ) : null}
+                    <dl className="mt-6 grid grid-cols-2 gap-4 border-t border-border pt-5">
+                      <div><dt className="mb-1 text-xs text-muted-foreground">Sex</dt><dd className="text-sm">{String(animal.sex)}</dd></div>
+                      <div><dt className="mb-1 text-xs text-muted-foreground">Color</dt><dd className="text-sm">{String(animal.color || "Not recorded")}</dd></div>
+                      <div><dt className="mb-1 text-xs text-muted-foreground">Birth date</dt><dd className="text-sm">{dateValue(animal.birth_date as string) || "Not recorded"}</dd></div>
+                      <div><dt className="mb-1 text-xs text-muted-foreground">Arrival</dt><dd className="text-sm">{dateValue(animal.arrival_date as string)}</dd></div>
+                    </dl>
+                    <div className="mt-auto pt-6">
+                      {submitted ? (
+                        <Button type="button" variant="secondary" className="w-full" onClick={() => onNavigate("my-applications")}>
+                          Application {String(submitted.application_status).toLowerCase()}
+                        </Button>
+                      ) : isAvailable ? (
+                        <Button type="button" className="w-full" aria-label={`Apply to adopt ${String(animal.animal_name)} ${animal.animal_id}`} onClick={() => setSelectedId(animal.animal_id as number)}>
+                          Apply to adopt
+                        </Button>
+                      ) : (
+                        <p className="text-center text-sm text-muted-foreground">Already adopted</p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+          {loaded && visible.length === 0 ? (
+            <Card><CardContent className="pt-6 text-center">
+              <h2 className="text-lg font-semibold">{query || species !== "All" ? "No matching animals" : "No animals right now"}</h2>
+              <p className="mt-2 text-sm text-muted-foreground">{query || species !== "All" ? "Try another search or species." : "Animals will appear here when added."}</p>
+            </CardContent></Card>
+          ) : null}
+        </>
+      )}
+    </div>
+  );
+}
+
 function MyDetails() {
   const { request } = useAuth();
-  const [values, setValues] = useState({ first_name: "", last_name: "", phone: "", address: "", email: "" });
+  const emptyValues = { first_name: "", last_name: "", phone: "", address: "", email: "" };
+  const [values, setValues] = useState(emptyValues);
+  const [savedProfile, setSavedProfile] = useState<typeof emptyValues | null>(null);
+  const [editing, setEditing] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -247,18 +492,27 @@ function MyDetails() {
     let cancelled = false;
     request("adopter/profile")
       .then((data) => {
-        if (cancelled || !data || typeof data !== "object") return;
-        const profile = data as Row;
-        setValues({
-          first_name: String(profile.first_name ?? ""),
-          last_name: String(profile.last_name ?? ""),
-          phone: String(profile.phone ?? ""),
-          address: String(profile.address ?? ""),
-          email: String(profile.email ?? ""),
-        });
+        if (cancelled) return;
+        if (data && typeof data === "object") {
+          const profile = data as Row;
+          const saved = {
+            first_name: String(profile.first_name ?? ""),
+            last_name: String(profile.last_name ?? ""),
+            phone: String(profile.phone ?? ""),
+            address: String(profile.address ?? ""),
+            email: String(profile.email ?? ""),
+          };
+          setValues(saved);
+          setSavedProfile(saved);
+          setEditing(false);
+        } else {
+          setEditing(true);
+        }
         setLoaded(true);
       })
-      .catch(() => setLoaded(true));
+      .catch(() => {
+        if (!cancelled) setLoaded(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -292,6 +546,8 @@ function MyDetails() {
     setMessage("Saving your details...");
     try {
       await request("adopter/profile", { method: "PUT", body: { ...trimmed, email: trimmed.email || null } });
+      setSavedProfile(trimmed);
+      setEditing(false);
       setMessage("Your details are saved.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Details could not be saved. Try again.");
@@ -304,7 +560,44 @@ function MyDetails() {
     <div className="grid gap-6">
       <PageHeading pageKey="my-details" />
       {!loaded ? (
-        <Card><CardContent className="pt-6 text-center text-sm text-muted-foreground" role="status">Loading your details...</CardContent></Card>
+        <Card role="status" aria-label="Loading your details">
+          <div className="grid gap-4 p-6 sm:grid-cols-2" aria-hidden="true">
+            <Skeleton className="h-11 w-full" />
+            <Skeleton className="h-11 w-full" />
+            <Skeleton className="h-11 w-full" />
+            <Skeleton className="h-11 w-full" />
+            <Skeleton className="h-24 w-full sm:col-span-2" />
+          </div>
+          <span className="sr-only">Loading your details...</span>
+        </Card>
+      ) : !editing && savedProfile ? (
+        <Card className="max-w-[800px]">
+          <CardContent className="pt-6">
+            {message ? <Alert className="mb-5">{message}</Alert> : null}
+            <dl className="grid gap-4 sm:grid-cols-2">
+              {(
+                [
+                  ["first_name", "First name"],
+                  ["last_name", "Last name"],
+                  ["phone", "Phone"],
+                  ["email", "Email"],
+                ] as const
+              ).map(([name, label]) => (
+                <div key={name}>
+                  <dt className="mb-1 text-sm text-muted-foreground">{label}</dt>
+                  <dd className="text-sm break-words">{savedProfile[name] || "Not set"}</dd>
+                </div>
+              ))}
+              <div className="sm:col-span-2">
+                <dt className="mb-1 text-sm text-muted-foreground">Address</dt>
+                <dd className="text-sm break-words whitespace-pre-wrap">{savedProfile.address}</dd>
+              </div>
+            </dl>
+            <div className="mt-6 flex flex-wrap gap-3 border-t border-border pt-5">
+              <Button type="button" onClick={() => { setErrors({}); setMessage(""); setEditing(true); }}>Edit</Button>
+            </div>
+          </CardContent>
+        </Card>
       ) : (
         <Card className="max-w-[800px]">
           <CardContent className="pt-6">
@@ -349,6 +642,21 @@ function MyDetails() {
               </div>
               <div className="mt-6 flex flex-wrap gap-3 border-t border-border pt-5">
                 <Button type="submit" disabled={busy}>{busy ? "Saving..." : "Save details"}</Button>
+                {savedProfile ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={busy}
+                    onClick={() => {
+                      setValues(savedProfile);
+                      setErrors({});
+                      setMessage("");
+                      setEditing(false);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                ) : null}
               </div>
             </form>
           </CardContent>
@@ -394,7 +702,11 @@ function MyApplications() {
         </Alert>
       ) : null}
       {applications === null && !error ? (
-        <Card><CardContent className="pt-6 text-center text-sm text-muted-foreground" role="status">Loading your applications...</CardContent></Card>
+        <div className="grid gap-4" role="status" aria-label="Loading your applications">
+          <span className="sr-only">Loading your applications...</span>
+          <Skeleton className="h-24 w-full" aria-hidden="true" />
+          <Skeleton className="h-24 w-full" aria-hidden="true" />
+        </div>
       ) : applications && applications.length === 0 ? (
         <Card><CardContent className="pt-6 text-center">
           <h2 className="text-lg font-semibold">No applications yet</h2>
@@ -429,5 +741,6 @@ function MyApplications() {
 export function AdopterPortal({ pageKey, onNavigate }: { pageKey: AdopterPageKey; onNavigate: (key: string) => void }) {
   if (pageKey === "my-details") return <MyDetails />;
   if (pageKey === "my-applications") return <MyApplications />;
+  if (pageKey === "all-animals") return <AllAnimals onNavigate={onNavigate} />;
   return <AvailableAnimals onNavigate={onNavigate} />;
 }

@@ -55,6 +55,7 @@ export const resources: Resource[] = [
       field("color", "Color", "text", { clear: null }),
       field("arrival_date", "Arrival date", "date", required),
       field("adoption_status", "Status", "text", { ...required, defaultValue: "Available", hint: "Changing this field does not update adoption records." }),
+      field("image_url", "Photo", "text", { clear: null, hint: "Upload a photo. It is compressed automatically." }),
     ],
   },
   {

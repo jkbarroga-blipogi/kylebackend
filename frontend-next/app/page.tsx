@@ -12,6 +12,7 @@ import { canAccess, provisioned, resources } from "@/lib/resources";
 
 const adopterPages: { key: AdopterPageKey; label: string }[] = [
   { key: "available-animals", label: "Available animals" },
+  { key: "all-animals", label: "All animals" },
   { key: "my-applications", label: "My applications" },
   { key: "my-details", label: "My details" },
 ];
@@ -33,7 +34,7 @@ function navGroups(role: string): NavGroup[] {
 }
 
 export default function Home() {
-  const { session, logout } = useAuth();
+  const { session, checked, logout } = useAuth();
   const [currentKey, setCurrentKey] = useState("overview");
 
   useEffect(() => {
@@ -75,6 +76,35 @@ export default function Home() {
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, [session, navigate]);
+
+  if (!checked) {
+    return (
+      <div className="grid min-h-dvh grid-cols-1 lg:grid-cols-[232px_minmax(0,1fr)]" role="status" aria-label="Loading">
+        <span className="sr-only">Loading your workspace...</span>
+        <aside className="hidden flex-col gap-4 border-r border-border bg-card p-6 lg:flex" aria-hidden="true">
+          <div className="flex items-center gap-3">
+            <div className="size-10 animate-pulse rounded-lg bg-secondary" />
+            <div className="grid flex-1 gap-2">
+              <div className="h-4 w-24 animate-pulse rounded bg-secondary" />
+              <div className="h-3 w-32 animate-pulse rounded bg-secondary" />
+            </div>
+          </div>
+          <div className="h-24 animate-pulse rounded-xl bg-secondary" />
+          <div className="h-11 animate-pulse rounded-lg bg-secondary" />
+          <div className="h-11 animate-pulse rounded-lg bg-secondary" />
+          <div className="h-11 animate-pulse rounded-lg bg-secondary" />
+          <div className="h-11 animate-pulse rounded-lg bg-secondary" />
+        </aside>
+        <main className="grid content-start gap-4 p-8" aria-hidden="true">
+          <div className="h-3 w-40 animate-pulse rounded bg-secondary" />
+          <div className="h-9 w-56 animate-pulse rounded bg-secondary" />
+          <div className="h-4 w-96 max-w-full animate-pulse rounded bg-secondary" />
+          <div className="mt-4 h-28 w-full animate-pulse rounded-xl bg-secondary" />
+          <div className="h-64 w-full animate-pulse rounded-xl bg-secondary" />
+        </main>
+      </div>
+    );
+  }
 
   if (!session) {
     return (

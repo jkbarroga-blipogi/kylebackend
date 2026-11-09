@@ -32,6 +32,8 @@ type AnimalRow = {
   color: string | null;
   arrival_date: string;
   adoption_status: string;
+  image_url: string | null;
+  adopter_name: string | null;
   breed?: {
     breed_id: number;
     species_id: number;
@@ -47,6 +49,7 @@ const ANIMAL_COLUMNS = [
   'color',
   'arrival_date',
   'adoption_status',
+  'image_url',
 ] as const;
 
 function mapSpecies(row: RowDataPacket): SpeciesRow {
@@ -102,6 +105,14 @@ function mapAnimal(row: RowDataPacket): AnimalRow {
         : String(raw.color),
     arrival_date: String(raw.arrival_date ?? ''),
     adoption_status: String(raw.adoption_status ?? ''),
+    image_url:
+      raw.image_url === null || raw.image_url === undefined
+        ? null
+        : String(raw.image_url),
+    adopter_name:
+      raw.adopter_first_name && raw.adopter_last_name
+        ? `${String(raw.adopter_first_name)} ${String(raw.adopter_last_name)}`
+        : null,
   };
 
   return nestedBreed ? { ...base, breed: nestedBreed } : base;
@@ -164,6 +175,27 @@ function validateAnimalPayload(data: unknown, creating: boolean): string[] {
 
       if (typeof value !== 'string') {
         throw new BadRequestException(`${key} must be text`);
+      }
+
+      continue;
+    }
+
+    if (key === 'image_url') {
+      if (value === null) {
+        continue;
+      }
+
+      if (
+        typeof value !== 'string' ||
+        value.length > 2000000 ||
+        !(
+          /^https?:\/\/\S+$/.test(value) ||
+          /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(value)
+        )
+      ) {
+        throw new BadRequestException(
+          'image_url must be an image URL or a compressed image data URL',
+        );
       }
 
       continue;
@@ -440,7 +472,7 @@ export class AnimalService {
   // ================= ANIMAL METHODS =================
 
   private animalSelect(where: string) {
-    return `SELECT \`a\`.\`animal_id\`, \`a\`.\`breed_id\`, \`a\`.\`animal_name\`, \`a\`.\`sex\`, DATE_FORMAT(\`a\`.\`birth_date\`, '%Y-%m-%d') AS \`birth_date\`, DATE_FORMAT(\`a\`.\`arrival_date\`, '%Y-%m-%d') AS \`arrival_date\`, \`a\`.\`color\`, \`a\`.\`adoption_status\`, \`b\`.\`breed_id\` AS \`breed_breed_id\`, \`b\`.\`species_id\` AS \`breed_species_id\`, \`b\`.\`breed_name\` AS \`breed_breed_name\` FROM \`Animal\` \`a\` LEFT JOIN \`Breed\` \`b\` ON \`b\`.\`breed_id\` = \`a\`.\`breed_id\`${where}`;
+    return `SELECT \`a\`.\`animal_id\`, \`a\`.\`breed_id\`, \`a\`.\`animal_name\`, \`a\`.\`sex\`, DATE_FORMAT(\`a\`.\`birth_date\`, '%Y-%m-%d') AS \`birth_date\`, DATE_FORMAT(\`a\`.\`arrival_date\`, '%Y-%m-%d') AS \`arrival_date\`, \`a\`.\`color\`, \`a\`.\`adoption_status\`, \`a\`.\`image_url\`, \`adopter\`.\`first_name\` AS \`adopter_first_name\`, \`adopter\`.\`last_name\` AS \`adopter_last_name\`, \`b\`.\`breed_id\` AS \`breed_breed_id\`, \`b\`.\`species_id\` AS \`breed_species_id\`, \`b\`.\`breed_name\` AS \`breed_breed_name\` FROM \`Animal\` \`a\` LEFT JOIN \`Breed\` \`b\` ON \`b\`.\`breed_id\` = \`a\`.\`breed_id\` LEFT JOIN \`Adoption\` \`adoption\` ON \`adoption\`.\`animal_id\` = \`a\`.\`animal_id\` LEFT JOIN \`Adopter\` \`adopter\` ON \`adopter\`.\`adopter_id\` = \`adoption\`.\`adopter_id\`${where}`;
   }
 
   // POST

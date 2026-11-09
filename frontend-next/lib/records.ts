@@ -55,6 +55,7 @@ export function readRows(resource: Resource, data: unknown): Row[] {
     ...resource.fields.filter((field) => field.type !== "password").map((field) => field.name),
     ...resource.columns,
     "created_at",
+    "adopter_name",
   ]);
   return data.map((row) => {
     if (!row || typeof row !== "object" || !Number.isSafeInteger((row as Row)[resource.idKey]) || ((row as Row)[resource.idKey] as number) <= 0) {

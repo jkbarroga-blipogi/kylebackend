@@ -13,6 +13,9 @@ export class AdopterController {
   @Get('animals')
   listAnimals() { return this.service.listAnimals(); }
 
+  @Get('all-animals')
+  listAllAnimals() { return this.service.listAllAnimals(); }
+
   @Get('profile')
   getProfile(@Request() request: AuthenticatedRequest) { return this.service.getProfile(request.user.userId); }
 

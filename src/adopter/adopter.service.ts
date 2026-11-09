@@ -51,7 +51,7 @@ export class AdopterService {
     return this.database(async () => {
       const [rows] = await this.db.getPool().execute<RowDataPacket[]>(`SELECT animal.animal_id, animal.animal_name,
         animal.sex, animal.color, DATE_FORMAT(animal.birth_date, '%Y-%m-%d') AS birth_date,
-        DATE_FORMAT(animal.arrival_date, '%Y-%m-%d') AS arrival_date, animal.adoption_status,
+        DATE_FORMAT(animal.arrival_date, '%Y-%m-%d') AS arrival_date, animal.adoption_status, animal.image_url,
         breed.breed_name, species.species_name
         FROM Animal animal
         INNER JOIN Breed breed ON breed.breed_id = animal.breed_id
@@ -62,6 +62,29 @@ export class AdopterService {
             AND LOWER(TRIM(app.application_status)) IN ('adopted', 'completed'))
         ORDER BY animal.arrival_date DESC, animal.animal_id DESC`);
       return rows;
+    });
+  }
+
+  async listAllAnimals() {
+    return this.database(async () => {
+      const [rows] = await this.db.getPool().execute<RowDataPacket[]>(`SELECT animal.animal_id, animal.animal_name,
+        animal.sex, animal.color, DATE_FORMAT(animal.birth_date, '%Y-%m-%d') AS birth_date,
+        DATE_FORMAT(animal.arrival_date, '%Y-%m-%d') AS arrival_date, animal.adoption_status, animal.image_url,
+        breed.breed_name, species.species_name,
+        adopter.first_name AS adopter_first_name, adopter.last_name AS adopter_last_name
+        FROM Animal animal
+        INNER JOIN Breed breed ON breed.breed_id = animal.breed_id
+        INNER JOIN Species species ON species.species_id = breed.species_id
+        LEFT JOIN Adoption adoption ON adoption.animal_id = animal.animal_id
+        LEFT JOIN Adopter adopter ON adopter.adopter_id = adoption.adopter_id
+        ORDER BY animal.arrival_date DESC, animal.animal_id DESC`);
+      return rows.map((row) => ({
+        ...row,
+        adopter_name:
+          row.adopter_first_name && row.adopter_last_name
+            ? `${String(row.adopter_first_name)} ${String(row.adopter_last_name)}`
+            : null,
+      }));
     });
   }
 

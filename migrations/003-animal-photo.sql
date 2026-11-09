@@ -1,0 +1,2 @@
+ALTER TABLE `Animal`
+  ADD COLUMN `image_url` LONGTEXT NULL;

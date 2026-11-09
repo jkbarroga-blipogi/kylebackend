@@ -1,10 +1,11 @@
 "use client";
 
-import { createContext, useContext, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { createClient, type ApiClient, type Session } from "./api";
 
 type AuthContextValue = {
   session: Session | null;
+  checked: boolean;
   login: (identifier: string, password: string) => Promise<Session>;
   register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -15,6 +16,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
+  const [checked, setChecked] = useState(false);
   const clientRef = useRef<ApiClient | null>(null);
   if (!clientRef.current) {
     clientRef.current = createClient({
@@ -22,6 +24,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }
   const client = clientRef.current;
+
+  useEffect(() => {
+    let cancelled = false;
+    client
+      .refresh()
+      .then((restored) => {
+        if (!cancelled) setSession(restored);
+      })
+      .catch(() => {
+        if (!cancelled) setSession(null);
+      })
+      .finally(() => {
+        if (!cancelled) setChecked(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function login(identifier: string, password: string): Promise<Session> {
     const next = await client.login(identifier, password);
@@ -46,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ session, login, register, logout, request }}>
+    <AuthContext.Provider value={{ session, checked, login, register, logout, request }}>
       {children}
     </AuthContext.Provider>
   );

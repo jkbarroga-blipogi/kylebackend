@@ -6,11 +6,12 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fieldValue, recordName, type Row } from "@/lib/records";
-import { canWrite, type Resource } from "@/lib/resources";
+import { canWrite, getResource, type Resource } from "@/lib/resources";
 
 type ResourceTableProps = {
   resource: Resource;
   rows: Row[];
+  references?: Record<string, Row[]>;
   role: string;
   onOpen: (resource: Resource, row: Row, mode: "view" | "edit") => void;
   onDelete: (resource: Resource, row: Row) => void;
@@ -36,7 +37,7 @@ function Badge({ value }: { value: unknown }) {
   );
 }
 
-export function ResourceTable({ resource, rows, role, onOpen, onDelete }: ResourceTableProps) {
+export function ResourceTable({ resource, rows, references = {}, role, onOpen, onDelete }: ResourceTableProps) {
   const [query, setQuery] = useState("");
   const writable = canWrite(role, resource.key);
   const filtered = useMemo(() => {
@@ -47,6 +48,18 @@ export function ResourceTable({ resource, rows, role, onOpen, onDelete }: Resour
 
   const labelFor = (name: string) =>
     resource.fields.find((field) => field.name === name)?.label ?? name.replace(/_/g, " ");
+
+  function displayValue(name: string, row: Row): string {
+    const field = resource.fields.find((entry) => entry.name === name);
+    if (field?.ref) {
+      const refResource = getResource(field.ref);
+      const related = references[field.ref]?.find(
+        (item) => String(item[refResource?.idKey ?? "id"]) === String(row[name]),
+      );
+      if (related && refResource) return recordName(refResource, related);
+    }
+    return fieldValue(resource, row, name, references);
+  }
 
   return (
     <Card>
@@ -95,13 +108,17 @@ export function ResourceTable({ resource, rows, role, onOpen, onDelete }: Resour
                 return (
                   <tr key={id} className="hover:bg-[#171c26]">
                     {resource.columns.map((name, index) => {
-                      const value = fieldValue(resource, row, name);
+                      const value = displayValue(name, row);
                       return (
                         <td key={name} className="max-w-[280px] border-b border-border align-middle break-words px-5 py-5">
                           {name.includes("status") || name === "role" ? (
                             <Badge value={row[name]} />
                           ) : index === 0 ? (
                             <span className="flex items-center gap-3">
+                              {resource.key === "animal" && typeof row.image_url === "string" && row.image_url ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={row.image_url} alt="" className="size-10 shrink-0 rounded-lg border border-border object-cover" />
+                              ) : null}
                               <span>
                                 <strong className="block font-medium">{value}</strong>
                                 <small className="mt-1 block text-xs text-muted-foreground tabular-nums">{id}</small>

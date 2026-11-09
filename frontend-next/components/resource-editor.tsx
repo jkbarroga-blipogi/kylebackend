@@ -21,6 +21,24 @@ type EditorProps = {
   onReload: () => Promise<boolean>;
 };
 
+async function compressPhoto(file: File): Promise<string> {
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+    throw new Error("Choose a JPEG, PNG, or WebP photo.");
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    throw new Error("Photo must be 5 MB or smaller.");
+  }
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, 800 / bitmap.width);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Photo could not be processed. Try another photo.");
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/jpeg", 0.8);
+}
+
 function referenceLabel(resource: Resource, row: Row): string {
   if (resource.key === "adoption-application") {
     return `Application ${row.application_id}: animal ${row.animal_id}, adopter ${row.adopter_id}, ${dateValue(row.application_date as string)}, ${row.application_status}`;
@@ -39,6 +57,8 @@ export function ResourceEditor({ resource, row, mode, onClose, onSaved, onDelete
   const [busy, setBusy] = useState(false);
   const [uncertain, setUncertain] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState("");
 
   useEffect(() => {
     const initial: Record<string, string> = {};
@@ -280,9 +300,74 @@ export function ResourceEditor({ resource, row, mode, onClose, onSaved, onDelete
                 value,
                 onChange: (event: { target: { value: string } }) => {
                   setDirty(true);
-                  setValues((current) => ({ ...current, [field.name]: event.target.value }));
+                  const nextValue = event.target.value;
+                  setValues((current) => {
+                    const next = { ...current, [field.name]: nextValue };
+                    if (resource.key === "adoption" && field.name === "application_id") {
+                      const application = (references["adoption-application"] ?? []).find(
+                        (item) => String(item.application_id) === nextValue,
+                      );
+                      if (application) {
+                        next.animal_id = String(application.animal_id);
+                        next.adopter_id = String(application.adopter_id);
+                      }
+                    }
+                    return next;
+                  });
                 },
               };
+              if (field.name === "image_url") {
+                return (
+                  <div key={field.name} className="grid gap-2">
+                    <Label htmlFor={inputId}>
+                      {field.label} <span className="font-normal text-muted-foreground">(optional)</span>
+                    </Label>
+                    {value ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={value} alt={`${resource.singular} photo`} className="h-40 w-full rounded-lg border border-border object-cover" />
+                    ) : null}
+                    <Input
+                      id={inputId}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      disabled={busy || photoBusy}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (!file) return;
+                        setPhotoBusy(true);
+                        setPhotoError("");
+                        compressPhoto(file)
+                          .then((dataUrl) => {
+                            setDirty(true);
+                            setValues((current) => ({ ...current, image_url: dataUrl }));
+                          })
+                          .catch((error: unknown) => {
+                            setPhotoError(error instanceof Error ? error.message : "Photo could not be processed. Try another photo.");
+                          })
+                          .finally(() => setPhotoBusy(false));
+                      }}
+                    />
+                    <small id={`hint-${field.name}`} className="text-sm leading-relaxed text-muted-foreground">
+                      {photoBusy ? "Processing photo..." : field.hint}
+                    </small>
+                    {photoError ? <span className="text-sm text-destructive">{photoError}</span> : null}
+                    {value ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        disabled={busy || photoBusy}
+                        onClick={() => {
+                          setDirty(true);
+                          setValues((current) => ({ ...current, image_url: "" }));
+                        }}
+                      >
+                        Remove photo
+                      </Button>
+                    ) : null}
+                  </div>
+                );
+              }
               return (
                 <div key={field.name} className="grid gap-2">
                   <Label htmlFor={inputId}>
@@ -291,7 +376,7 @@ export function ResourceEditor({ resource, row, mode, onClose, onSaved, onDelete
                   {field.ref ? (
                     <select
                       {...shared}
-                      disabled={busy || !references[field.ref]}
+                      disabled={busy || !references[field.ref] || (resource.key === "adoption" && (field.name === "animal_id" || field.name === "adopter_id"))}
                       className="flex min-h-11 w-full min-w-0 rounded-lg border border-input bg-secondary px-3 py-2 text-base text-foreground disabled:cursor-not-allowed disabled:opacity-65"
                     >
                       <option value="">{references[field.ref] ? `Choose ${field.label.toLowerCase()}` : "Loading choices..."}</option>

@@ -280,6 +280,15 @@ describe("animal payload validation (V6)", () => {
     );
   });
 
+  it("accepts image URLs and data URLs and rejects other image values", async () => {
+    const { service } = setup([]);
+    await expect(
+      service.create({ breed_id: 2, animal_name: "Bantay", sex: "M", arrival_date: "2025-01-10", image_url: "not-an-image" }),
+    ).rejects.toThrow(
+      new BadRequestException("image_url must be an image URL or a compressed image data URL"),
+    );
+  });
+
   it("rejects empty patches on update", async () => {
     const { service } = setup([]);
     await expect(service.update(7, {})).rejects.toThrow(
@@ -315,10 +324,12 @@ describe("animal contract", () => {
       arrival_date: "2025-01-10",
       color: "white",
       adoption_status: "Available",
+      image_url: null,
+      adopter_name: null,
       breed: { breed_id: 2, species_id: 3, breed_name: "Shiba" },
     });
     expect(captureOf(canned)[0].sql).toBe(
-      "SELECT `a`.`animal_id`, `a`.`breed_id`, `a`.`animal_name`, `a`.`sex`, DATE_FORMAT(`a`.`birth_date`, '%Y-%m-%d') AS `birth_date`, DATE_FORMAT(`a`.`arrival_date`, '%Y-%m-%d') AS `arrival_date`, `a`.`color`, `a`.`adoption_status`, `b`.`breed_id` AS `breed_breed_id`, `b`.`species_id` AS `breed_species_id`, `b`.`breed_name` AS `breed_breed_name` FROM `Animal` `a` LEFT JOIN `Breed` `b` ON `b`.`breed_id` = `a`.`breed_id` WHERE `a`.`animal_id` = ?",
+      "SELECT `a`.`animal_id`, `a`.`breed_id`, `a`.`animal_name`, `a`.`sex`, DATE_FORMAT(`a`.`birth_date`, '%Y-%m-%d') AS `birth_date`, DATE_FORMAT(`a`.`arrival_date`, '%Y-%m-%d') AS `arrival_date`, `a`.`color`, `a`.`adoption_status`, `a`.`image_url`, `adopter`.`first_name` AS `adopter_first_name`, `adopter`.`last_name` AS `adopter_last_name`, `b`.`breed_id` AS `breed_breed_id`, `b`.`species_id` AS `breed_species_id`, `b`.`breed_name` AS `breed_breed_name` FROM `Animal` `a` LEFT JOIN `Breed` `b` ON `b`.`breed_id` = `a`.`breed_id` LEFT JOIN `Adoption` `adoption` ON `adoption`.`animal_id` = `a`.`animal_id` LEFT JOIN `Adopter` `adopter` ON `adopter`.`adopter_id` = `adoption`.`adopter_id` WHERE `a`.`animal_id` = ?",
     );
   });
 

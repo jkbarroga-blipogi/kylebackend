@@ -11,6 +11,7 @@ const icons: Record<string, ComponentType<{ className?: string; "aria-hidden"?: 
   overview: LayoutDashboard,
   animal: PawPrint,
   "available-animals": PawPrint,
+  "all-animals": PawPrint,
   "medical-record": HeartPulse,
   adopter: Users,
   "adoption-application": ClipboardList,

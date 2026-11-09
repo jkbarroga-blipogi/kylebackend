@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ResourceEditor } from "@/components/resource-editor";
 import { ResourceTable } from "@/components/resource-table";
 import { ApiError } from "@/lib/api";
@@ -27,12 +28,31 @@ export function ResourcePage({ resourceKey }: { resourceKey: string }) {
   const [followupBusy, setFollowupBusy] = useState(false);
   const [followupMessage, setFollowupMessage] = useState("");
 
+  const [references, setReferences] = useState<Record<string, Row[]>>({});
+
   const load = useCallback(async (): Promise<boolean> => {
     if (!resource || !session) return false;
     setLoadError("");
     try {
       const loaded = readRows(resource, await request(resource.path));
       setRows(loaded);
+      const refKeys = new Set(
+        resource.fields.map((field) => field.ref).filter((value): value is string => Boolean(value)),
+      );
+      if (refKeys.size > 0) {
+        const entries = await Promise.allSettled(
+          [...refKeys].map(async (key) => {
+            const refResource = getResource(key);
+            if (!refResource) throw new Error(`Missing reference ${key}`);
+            return [key, readRows(refResource, await request(refResource.path))] as const;
+          }),
+        );
+        setReferences(
+          Object.fromEntries(
+            entries.filter((entry) => entry.status === "fulfilled").map((entry) => (entry as PromiseFulfilledResult<readonly [string, Row[]]>).value),
+          ),
+        );
+      }
       return true;
     } catch (error) {
       setRows(null);
@@ -140,11 +160,23 @@ export function ResourcePage({ resourceKey }: { resourceKey: string }) {
               </CardContent>
             </Card>
           ) : rows === null ? (
-            <Card><CardContent className="pt-6 text-center text-sm text-muted-foreground" role="status">Loading records...</CardContent></Card>
+            <Card role="status" aria-label="Loading records">
+              <div className="grid gap-3 border-b border-border p-5" aria-hidden="true">
+                <Skeleton className="h-11 w-full" />
+              </div>
+              <div className="grid gap-3 p-5" aria-hidden="true">
+                <Skeleton className="h-14 w-full" />
+                <Skeleton className="h-14 w-full" />
+                <Skeleton className="h-14 w-full" />
+                <Skeleton className="h-14 w-2/3" />
+              </div>
+              <span className="sr-only">Loading records...</span>
+            </Card>
           ) : (
             <ResourceTable
               resource={resource}
               rows={rows}
+              references={references}
               role={session?.role ?? ""}
               onOpen={(openedResource, row, mode) => setEditor({ row, mode })}
               onDelete={(_openedResource, row) => { setDeleteError(""); setDeleteTarget(row); }}
@@ -162,16 +194,32 @@ export function ResourcePage({ resourceKey }: { resourceKey: string }) {
               onDelete={(_openedResource, row) => { setDeleteError(""); setDeleteTarget(row); }}
               onSaved={async (savedResource, savedRow, created) => {
                 setEditor(null);
-                setPageMessage("Changes saved.");
+                let needsFollowup = false;
                 if (savedResource.key === "adoption" && created) {
-                  setFollowup({
-                    applicationId: savedRow.application_id as number,
-                    adoptionId: savedRow.adoption_id as number,
-                  });
-                  setFollowupMessage("");
+                  const applicationId = savedRow.application_id as number;
+                  const adoptionId = savedRow.adoption_id as number;
+                  try {
+                    await request(`shelter/adoption-application/${applicationId}`, {
+                      method: "PUT",
+                      body: { application_status: "Adopted" },
+                    });
+                    setPageMessage(`Adoption ${adoptionId} saved. Application ${applicationId} is now Adopted. Animal is now Adopted.`);
+                    setFollowup(null);
+                    setFollowupMessage("");
+                  } catch (error) {
+                    const apiError = error instanceof ApiError ? error : new ApiError(error instanceof Error ? error.message : "Update failed.");
+                    if (apiError.status !== 401) {
+                      needsFollowup = true;
+                      setFollowup({ applicationId, adoptionId });
+                      setFollowupMessage(`Adoption saved. Application status still needs updating. ${apiError.message}`);
+                      setPageMessage(`Adoption ${adoptionId} saved. Animal is now Adopted.`);
+                    }
+                  }
+                } else {
+                  setPageMessage("Changes saved.");
                 }
                 const loaded = await load();
-                if (!loaded && session) setPageMessage("Changes saved. Reload to see current records.");
+                if (!loaded && session && !needsFollowup) setPageMessage("Changes saved. Reload to see current records.");
               }}
             />
           </div>
