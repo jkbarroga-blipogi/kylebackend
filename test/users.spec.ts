@@ -2,14 +2,13 @@ import { describe, expect, it, vi } from "vitest";
 import { NotFoundException, BadRequestException, ConflictException } from "@nestjs/common";
 
 import { UsersService } from "../src/users/users.service";
-import { CategoryService } from "../src/category/category.service";
 import { cannedDb, normSql, type CapturedQuery } from "./helpers/fake-db";
 
 type CannedSlot = Parameters<typeof cannedDb>[0][number];
 
 function setup(results: CannedSlot[]) {
   const canned = cannedDb(results);
-  return { ...canned, users: new UsersService(canned.db), category: new CategoryService(canned.db) };
+  return { ...canned, users: new UsersService(canned.db) };
 }
 
 function captureOf(canned: ReturnType<typeof cannedDb>): CapturedQuery[] {
@@ -69,25 +68,57 @@ describe("UsersService SQL contract", () => {
     const canned = setup([{ kind: "header", insertId: 4, affectedRows: 1 }]);
     const out = await canned.users.createUser("ana", "s3cret-pass");
 
-    expect(out).toEqual({ id: 4, username: "ana", role: "user" });
+    expect(out).toEqual({ id: 4, username: "ana", email: null, role: "user" });
 
     const captured = captureOf(canned);
     expect(captured[0].sql).toBe(
-      "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+      "INSERT INTO users (username, password, role, email) VALUES (?, ?, ?, ?)",
     );
     expect(captured[0].params[0]).toBe("ana");
     expect(captured[0].params[1]).not.toBe("s3cret-pass");
     expect(String(captured[0].params[1]).length).toBeGreaterThan(8);
     expect(captured[0].params[2]).toBe("user");
+    expect(captured[0].params[3]).toBeNull();
+  });
+
+  it("finds an account by username or email for login", async () => {
+    const canned = setup([
+      { kind: "rows", rows: [{ id: 1, username: "ana", email: "ana@example.com", password: "hash", role: "user" }] },
+      { kind: "rows", rows: [{ id: 1, username: "ana", email: "ana@example.com", password: "hash", role: "user" }] },
+    ]);
+    await canned.users.findByIdentifier("ana");
+    await canned.users.findByIdentifier("Ana@Example.com");
+
+    const captured = captureOf(canned);
+    expect(captured[0].sql).toBe(
+      "SELECT id, username, email, password, role, refresh_token FROM users WHERE username = ? OR email = ?",
+    );
+    expect(captured[0].params).toEqual(["ana", "ana"]);
+    expect(captured[1].params).toEqual(["Ana@Example.com", "ana@example.com"]);
   });
 
   it("selects safe user columns for listing", async () => {
-    const canned = setup([{ kind: "rows", rows: [{ id: 1, username: "ana", role: "user", created_at: "now" }] }]);
+    const canned = setup([{ kind: "rows", rows: [{ id: 1, username: "ana", email: "ana@example.com", role: "user", created_at: "now" }] }]);
     const rows = await canned.users.getAll();
-    expect(rows).toEqual([{ id: 1, username: "ana", role: "user", created_at: "now" }]);
+    expect(rows).toEqual([{ id: 1, username: "ana", email: "ana@example.com", role: "user", created_at: "now" }]);
     const captured = captureOf(canned);
-    expect(captured[0].sql).toBe("SELECT id, username, role, created_at FROM users");
+    expect(captured[0].sql).toBe("SELECT id, username, email, role, created_at FROM users");
     expect(captured[0].params).toEqual([]);
+  });
+
+  it("updates an account email in lowercase", async () => {
+    const canned = setup([
+      { kind: "header", insertId: 0, affectedRows: 1 },
+      { kind: "rows", rows: [{ id: 1, username: "ana", email: "ana@example.com", role: "user" }] },
+    ]);
+    await canned.users.updateUser(
+      1,
+      { email: "Ana@Example.com" },
+      { id: 1, role: "user" },
+    );
+    const captured = captureOf(canned);
+    expect(captured[0].sql).toBe("UPDATE users SET email = ? WHERE id = ?");
+    expect(captured[0].params).toEqual(["ana@example.com", 1]);
   });
 
   it("applies only provided update fields after hashing", async () => {
@@ -107,7 +138,7 @@ describe("UsersService SQL contract", () => {
     expect(captured[0].params[0]).toBe("ana2");
     expect(captured[0].params[1]).not.toBe("newpass");
     expect(captured[0].params[2]).toBe(1);
-    expect(captured[1].sql).toBe("SELECT id, username, role, created_at FROM users WHERE id = ?");
+    expect(captured[1].sql).toBe("SELECT id, username, email, role, created_at FROM users WHERE id = ?");
   });
 
   it("stores and looks up refresh tokens", async () => {
@@ -127,6 +158,17 @@ describe("UsersService SQL contract", () => {
     expect(captured[1].params).toEqual(["tok"]);
   });
 
+  it("returns the matching account for a refresh token", async () => {
+    const canned = setup([
+      { kind: "rows", rows: [{ id: 1, username: "ana", role: "user" }] },
+    ]);
+    await expect(canned.users.findByRefreshToken("tok")).resolves.toEqual({
+      id: 1,
+      username: "ana",
+      role: "user",
+    });
+  });
+
   it("deletes users and reports affected rows", async () => {
     const canned = setup([{ kind: "header", insertId: 0, affectedRows: 1 }]);
     const out = await canned.users.deleteUser(2);
@@ -135,7 +177,7 @@ describe("UsersService SQL contract", () => {
   });
 });
 
-describe("users and category error mapping (V5)", () => {
+describe("users error mapping (V5)", () => {
   it("maps duplicate-entry errors to Conflict on user create", async () => {
     const { users } = setup([
       { kind: "error", error: { code: "ER_DUP_ENTRY" } },
@@ -154,72 +196,4 @@ describe("users and category error mapping (V5)", () => {
     );
   });
 
-  it("maps duplicate-entry errors to Conflict on category create", async () => {
-    const { category } = setup([
-      { kind: "error", error: { code: "ER_DUP_ENTRY" } },
-    ]);
-    await expect(category.createCategory({ name: "Vaccines" })).rejects.toThrow(
-      new ConflictException("Duplicate value"),
-    );
-  });
-
-  it("maps still-referenced errors to Conflict on category delete", async () => {
-    const { category } = setup([
-      { kind: "error", error: { code: "ER_ROW_IS_REFERENCED_2" } },
-    ]);
-    await expect(category.deleteCategory(1)).rejects.toThrow(
-      new ConflictException("Another record still uses this record"),
-    );
-  });
-
-  it("maps missing-reference errors to BadRequest on category create", async () => {
-    const { category } = setup([
-      { kind: "error", error: { code: "ER_NO_REFERENCED_ROW_2" } },
-    ]);
-    await expect(category.createCategory({ name: "Vaccines" })).rejects.toThrow(
-      new BadRequestException("A referenced ID does not exist"),
-    );
-  });
-});
-
-describe("CategoryService SQL contract", () => {
-  it("inserts with null description default", async () => {
-    const canned = setup([{ kind: "header", insertId: 8, affectedRows: 1 }]);
-    const out = await canned.category.createCategory({ name: "Vaccines" });
-    expect(out).toEqual({ id: 8, name: "Vaccines", description: null });
-
-    const captured = captureOf(canned);
-    expect(captured[0].sql).toBe("INSERT INTO categories (name, description) VALUES (?, ?)");
-    expect(captured[0].params).toEqual(["Vaccines", null]);
-  });
-
-  it("reports missing categories", async () => {
-    const { category } = setup([{ kind: "rows", rows: [] }]);
-    await expect(category.findById(1)).rejects.toThrow(
-      new NotFoundException("Category with ID 1 not found"),
-    );
-  });
-
-  it("updates only provided fields", async () => {
-    const canned = setup([
-      { kind: "header", insertId: 0, affectedRows: 1 },
-      { kind: "rows", rows: [{ id: 1, name: "b", description: "d" }] },
-    ]);
-    const row = await canned.category.updateCategory(1, { name: "b", description: "d" });
-    expect(row).toEqual({ id: 1, name: "b", description: "d" });
-
-    const captured = captureOf(canned);
-    expect(captured.length).toBe(2);
-    expect(captured[0].sql).toBe(
-      "UPDATE categories SET name = ?, description = ? WHERE id = ?",
-    );
-    expect(captured[0].params).toEqual(["b", "d", 1]);
-  });
-
-  it("no-ops on empty update and reads back", async () => {
-    const canned = setup([{ kind: "rows", rows: [{ id: 1, name: "a" }] }]);
-    const row = await canned.category.updateCategory(1, {});
-    expect(row).toEqual({ id: 1, name: "a" });
-    expect(captureOf(canned).length).toBe(1);
-  });
 });

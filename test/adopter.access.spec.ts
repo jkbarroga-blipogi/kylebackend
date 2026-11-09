@@ -12,8 +12,6 @@ import { ShelterController } from '../src/shelter/shelter.controller';
 import { ShelterService } from '../src/shelter/shelter.service';
 import { UsersController } from '../src/users/users.controller';
 import { UsersService } from '../src/users/users.service';
-import { CategoryController } from '../src/category/category.controller';
-import { CategoryService } from '../src/category/category.service';
 import { AuthController } from '../src/auth/auth.controller';
 import { AuthService } from '../src/auth/auth.service';
 import { AdopterController } from '../src/adopter/adopter.controller';
@@ -40,18 +38,18 @@ let jwt: JwtService;
 // Vitest's transformer omits constructor metadata. These match the production constructors.
 for (const [controller, dependencies] of [
   [AnimalController, [AnimalService]], [ShelterController, [ShelterService]],
-  [UsersController, [UsersService]], [CategoryController, [CategoryService]],
+  [UsersController, [UsersService]],
   [AuthController, [AuthService, UsersService]], [AdopterController, [AdopterService]],
 ] as const) Reflect.defineMetadata('design:paramtypes', dependencies, controller);
 
 class AccessTestModule {}
 Module({
   imports: [PassportModule.register({ defaultStrategy: 'jwt' })],
-  controllers: [AnimalController, ShelterController, UsersController, CategoryController, AuthController, AdopterController],
+  controllers: [AnimalController, ShelterController, UsersController, AuthController, AdopterController],
   providers: [
     RolesGuard,
     { provide: UsersService, useValue: users }, { provide: AnimalService, useValue: animals },
-    { provide: ShelterService, useValue: shelter }, { provide: CategoryService, useValue: { getAll: async () => [] } },
+    { provide: ShelterService, useValue: shelter },
     { provide: AuthService, useValue: {} }, { provide: AdopterService, useValue: adopter },
     { provide: JwtStrategy, useFactory: () => new JwtStrategy(users as unknown as UsersService) },
   ],
@@ -79,11 +77,11 @@ describe('HTTP role boundaries for adopter access', () => {
     expect((await request('/adopter/animals', 999)).status).toBe(401);
   });
 
-  it.each(['/animal', '/species', '/breed', '/users', '/users/1', '/category', '/shelter/adopter', '/shelter/staff', '/shelter/adoption-application', '/shelter/medical-record', '/shelter/adoption'])('denies a user direct access to %s', async (path) => {
+  it.each(['/animal', '/species', '/breed', '/users', '/users/1', '/shelter/adopter', '/shelter/staff', '/shelter/adoption-application', '/shelter/medical-record', '/shelter/adoption'])('denies a user direct access to %s', async (path) => {
     expect((await request(path, 4)).status).toBe(403);
   });
 
-  it.each(['/animal', '/species', '/breed', '/shelter/adopter', '/shelter/adoption-application', '/shelter/adoption', '/category'])('denies user writes to %s', async (path) => {
+  it.each(['/animal', '/species', '/breed', '/shelter/adopter', '/shelter/adoption-application', '/shelter/adoption'])('denies user writes to %s', async (path) => {
     expect((await request(path, 4, 'POST', {})).status).toBe(403);
   });
 
@@ -124,6 +122,6 @@ describe('HTTP role boundaries for adopter access', () => {
     const response = await request('/auth/register', undefined, 'POST', { username: ' Ana ', password: 'test-password' });
     expect(response.status).toBe(201);
     expect(await response.json()).toMatchObject({ username: 'Ana', role: 'user' });
-    expect(users.createUser).toHaveBeenCalledWith('Ana', 'test-password');
+    expect(users.createUser).toHaveBeenCalledWith('Ana', 'test-password', undefined);
   });
 });

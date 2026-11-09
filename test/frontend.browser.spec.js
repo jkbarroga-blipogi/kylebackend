@@ -107,7 +107,18 @@ describe.skipIf(!browserPath)("frontend browser journeys (isolated local API)", 
     await screenshot("login-desktop");
     await login();
     await screenshot("overview-desktop");
-    expect(await browser.evaluate('document.querySelector("#overview").textContent')).toContain("Available animals");
+    expect(await browser.evaluate('document.querySelector("#overview").textContent')).toContain("Total animals");
+    expect(await browser.evaluate('document.querySelector("#overview").textContent')).not.toContain("Available animals");
+    expect(await browser.evaluate('document.querySelector("#overview").textContent')).not.toContain("Make the next move");
+    expect(await browser.evaluate('document.querySelector("#btn-overview-reload")')).toBeNull();
+    expect(await browser.evaluate('document.querySelector(".breadcrumbs")')).toBeNull();
+    expect(await browser.evaluate('getComputedStyle(document.documentElement).scrollBehavior')).toBe("smooth");
+    expect(await browser.evaluate('document.querySelectorAll(".stat-card").length')).toBe(1);
+    expect(await browser.evaluate('document.querySelector("#overview").textContent')).not.toContain("Pending applications");
+    expect(await browser.evaluate('document.querySelector("#overview").textContent')).not.toContain("Adoption records");
+    expect(await browser.evaluate('document.querySelector("#page-eyebrow").textContent')).toBe("Dashboard");
+    expect(await browser.evaluate('document.querySelector("#res-description").textContent')).toContain("needs your attention");
+    expect(await browser.evaluate('document.querySelector(".page-heading").textContent.toLowerCase()')).not.toContain("at a glance");
     await navigate("animal");
     await screenshot("animals-desktop");
     await browser.click("#btn-add");
@@ -206,7 +217,7 @@ describe.skipIf(!browserPath)("frontend browser journeys (isolated local API)", 
   it("keeps unavailable overview counts readable at 320 pixels", async () => {
     await browser.send("Emulation.setDeviceMetricsOverride", { width: 320, height: 900, deviceScaleFactor: 1, mobile: false });
     expect(await browser.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
-    failures["GET shelter/adoption"] = 500;
+    failures["GET animal"] = 500;
     await login();
     expect(await browser.evaluate('document.querySelector("#overview").textContent')).toContain("Unavailable");
     expect(await browser.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
@@ -300,16 +311,41 @@ describe.skipIf(!browserPath)("frontend browser journeys (isolated local API)", 
     await screenshot("adopter-applications");
   });
 
-  it("registers an adopter through a native form and never submits a role", async () => {
+  it("registers a user through a native form and never submits a role", async () => {
     role = "user";
     await browser.click("#btn-register");
     await browser.fill("#login-user", "NewAdopter");
+    await browser.fill("#register-email", "newadopter@example.com");
     await browser.fill("#login-pass", " sample password ");
     await browser.fill("#register-confirm", " sample password ");
     await browser.evaluate('document.querySelector("#login-form").requestSubmit()');
     await browser.wait('!document.querySelector("#view-app").hidden && document.querySelector("#page-content").getAttribute("aria-busy") === "false"');
-    expect(requests.find((item) => item.path === "auth/register").body).toEqual({ username: "NewAdopter", password: " sample password " });
+    expect(requests.find((item) => item.path === "auth/register").body).toEqual({ username: "NewAdopter", email: "newadopter@example.com", password: " sample password " });
     expect(await browser.evaluate('document.querySelector("#res-title").textContent')).toBe("Available animals");
+  });
+
+  it("shows user sign up on the side with an automatic Render connection", async () => {
+    expect(await browser.evaluate('document.querySelector("#login-form").textContent')).not.toContain("Create an adopter account");
+    expect(await browser.evaluate('document.querySelector("#connection-settings")')).toBeNull();
+    expect(await browser.evaluate('document.querySelector("#login-api")')).toBeNull();
+    expect(await browser.evaluate('document.querySelector("#btn-test")')).toBeNull();
+    expect(await browser.evaluate('document.querySelector("label[for=login-user]").textContent')).toContain("Username or Email");
+    expect(await browser.evaluate('document.querySelector("#login-form").method')).toBe("post");
+    expect(await browser.evaluate('document.querySelector("#btn-register").textContent')).toContain("Create new account");
+    await browser.click("#btn-register");
+    expect(await browser.evaluate('document.querySelector("#btn-register").textContent')).toContain("Already registered? Sign in");
+    expect(await browser.evaluate('document.querySelector("#register-email").hidden')).toBe(false);
+  });
+
+  it("rejects a short registration password", async () => {
+    await browser.click("#btn-register");
+    await browser.fill("#login-user", "NewAdopter");
+    await browser.fill("#register-email", "newadopter@example.com");
+    await browser.fill("#login-pass", "short");
+    await browser.fill("#register-confirm", "short");
+    await browser.evaluate('document.querySelector("#login-form").requestSubmit()');
+    expect(await browser.evaluate('document.querySelector("#login-msg").textContent')).toContain("at least 8");
+    expect(requests).toHaveLength(0);
   });
 
   it("preserves adopter profile drafts on expiry and reflows the adopter screens", async () => {
@@ -368,6 +404,7 @@ describe.skipIf(!browserPath)("frontend browser journeys (isolated local API)", 
     role = "user";
     await browser.click("#btn-register");
     await browser.fill("#login-user", "NewAdopter");
+    await browser.fill("#register-email", "newadopter@example.com");
     await browser.fill("#login-pass", "new-password");
     await browser.fill("#register-confirm", "different-password");
     await browser.evaluate('document.querySelector("#login-form").requestSubmit()');

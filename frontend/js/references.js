@@ -11,8 +11,8 @@ export async function loadReferences(client, resource) {
 }
 
 function referenceLabel(resource, row) {
-  if (resource.key === "adoption-application") return `Application #${row.application_id}: animal #${row.animal_id}, adopter #${row.adopter_id}, ${dateValue(row.application_date)}, ${row.application_status}`;
-  return `${recordName(resource, row)} #${row[resource.idKey]}`;
+  if (resource.key === "adoption-application") return `Application ${row.application_id}: animal ${row.animal_id}, adopter ${row.adopter_id}, ${dateValue(row.application_date)}, ${row.application_status}`;
+  return `${recordName(resource, row)} ${row[resource.idKey]}`;
 }
 
 export function populateReferences(resource, row, references, form) {
@@ -36,7 +36,7 @@ export function populateReferences(resource, row, references, form) {
     select.replaceChildren(new Option(`Choose ${field.label.toLowerCase()}`, ""));
     for (const choice of choices) select.add(new Option(referenceLabel(relatedResource, choice), String(choice[relatedResource.idKey])));
     if (current && !choices.some((choice) => String(choice[relatedResource.idKey]) === current)) {
-      const retained = new Option(`#${current} (unavailable)`, current);
+      const retained = new Option(`${current} (unavailable)`, current);
       retained.dataset.missing = "true";
       select.add(retained);
     }

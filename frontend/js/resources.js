@@ -56,8 +56,8 @@ export const resources = [
   },
   {
     key: "users", label: "Users", singular: "user", icon: "shield", group: "Administration", path: "users", createPath: "auth/register", idKey: "id",
-    description: "Manage accounts. Roles are provisioned by an administrator outside this interface.", columns: ["username", "role", "created_at"],
-    fields: [field("username", "Username", "text", required), field("password", "New password", "password", { createRequired: true, hint: "On edit, leave blank to keep the current password. Spaces are preserved." })],
+    description: "Manage accounts. Roles are provisioned by an administrator outside this interface.", columns: ["username", "email", "role", "created_at"],
+    fields: [field("username", "Username", "text", required), field("email", "Email", "email", { clear: null, maxLength: 255, hint: "Optional. The user can sign in with username or email." }), field("password", "New password", "password", { createRequired: true, minLength: 8, hint: "Use at least 8 characters. On edit, leave blank to keep the current password. Spaces are preserved." })],
   },
 ];
 

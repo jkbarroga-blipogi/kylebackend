@@ -34,7 +34,7 @@ export function createDeletion(client, onDeleted) {
     if (!canWrite(client.session?.role, resource.key)) return;
     selected = { resource, row };
     $("delete-title").textContent = `Delete ${resource.singular}?`;
-    $("delete-description").textContent = `${recordName(resource, row)} (#${row[resource.idKey]}) will be deleted. This cannot be undone.`
+    $("delete-description").textContent = `${recordName(resource, row)} (${row[resource.idKey]}) will be deleted. This cannot be undone.`
       + (["adoption", "adoption-application"].includes(resource.key) ? " Related animal availability can change. Review its records afterward." : " Referenced records may prevent deletion.");
     message("delete-message", "");
     dialog.showModal();

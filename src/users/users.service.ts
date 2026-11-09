@@ -9,6 +9,7 @@ type Actor = { id: number; role: string };
 type UserMutationFields = {
   username?: string;
   password?: string;
+  email?: string | null;
 };
 
 @Injectable()
@@ -38,21 +39,27 @@ export class UsersService {
     }
   }
 
-  async createUser(username: string, password: string, role = 'user') {
+  async createUser(username: string, password: string, email?: string, role = 'user') {
     const hashed = await bcrypt.hash(password, 10);
+    const normalizedEmail = email?.trim().toLowerCase() || null;
 
     const result = await this.run<ResultSetHeader>(
-      `INSERT INTO users (username, password, role) VALUES (?, ?, ?)`,
-      [username, hashed, role],
+      `INSERT INTO users (username, password, role, email) VALUES (?, ?, ?, ?)`,
+      [username, hashed, role, normalizedEmail],
     );
 
-    return { id: result.insertId, username, role };
+    return { id: result.insertId, username, email: normalizedEmail, role };
   }
 
   async findByUsername(username: string) {
+    return this.findByIdentifier(username);
+  }
+
+  async findByIdentifier(identifier: string) {
+    const loginId = identifier.trim();
     const rows = await this.run<any[]>(
-      `SELECT id, username, password, role, refresh_token FROM users WHERE username = ?`,
-      [username],
+      `SELECT id, username, email, password, role, refresh_token FROM users WHERE username = ? OR email = ?`,
+      [loginId, loginId.toLowerCase()],
     );
 
     return rows[0];
@@ -60,7 +67,7 @@ export class UsersService {
 
   async findById(id: number) {
     const rows = await this.run<any[]>(
-      `SELECT id, username, role, created_at FROM users WHERE id = ?`,
+      `SELECT id, username, email, role, created_at FROM users WHERE id = ?`,
       [id],
     );
 
@@ -69,7 +76,7 @@ export class UsersService {
 
   async getAll() {
     const rows = await this.run<any[]>(
-      `SELECT id, username, role, created_at FROM users`,
+      `SELECT id, username, email, role, created_at FROM users`,
     );
 
     return rows;
@@ -90,7 +97,7 @@ export class UsersService {
 
     const body = (partial ?? {}) as Record<string, unknown>;
     const fields: string[] = [];
-    const values: (string | number)[] = [];
+    const values: (string | number | null)[] = [];
 
     for (const [key, value] of Object.entries(body)) {
       if ((key === 'username' || key === 'password') && typeof value === 'string' && value.trim()) {
@@ -99,6 +106,20 @@ export class UsersService {
           key === 'password' ? await bcrypt.hash(value, 10) : value.trim(),
         );
         continue;
+      }
+
+      if (key === 'email') {
+        if (value === null) {
+          fields.push('email = ?');
+          values.push(null);
+          continue;
+        }
+        if (typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) {
+          fields.push('email = ?');
+          values.push(value.trim().toLowerCase());
+          continue;
+        }
+        throw new BadRequestException('Unknown field: email');
       }
 
       throw new BadRequestException(`Unknown field: ${key}`);
@@ -132,7 +153,7 @@ export class UsersService {
   }
 
   async findByRefreshToken(refreshToken: string) {
-    const [rows] = await this.run<any[]>(
+    const rows = await this.run<any[]>(
       `SELECT id, username, role FROM users WHERE refresh_token = ?`,
       [refreshToken],
     );

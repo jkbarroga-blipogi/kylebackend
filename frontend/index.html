@@ -35,21 +35,16 @@
         <span class="eyebrow">Your shelter, in view</span>
         <h1 id="login-title">Welcome back.</h1>
         <p id="login-intro" class="login-intro">Sign in to your Barroga workspace.</p>
-        <form id="login-form">
-          <div class="field"><label for="login-user">Username</label><input id="login-user" name="username" autocomplete="username" maxlength="255" required placeholder="Enter your username" autocapitalize="none" spellcheck="false"></div>
+        <form id="login-form" method="post">
+          <div class="field"><label for="login-user">Username or Email</label><input id="login-user" name="username" autocomplete="username" maxlength="255" required placeholder="Enter your username or email" autocapitalize="none" spellcheck="false"></div>
+          <div id="register-email-field" class="field" hidden><label for="register-email">Email</label><input id="register-email" name="email" type="email" autocomplete="email" maxlength="255" required disabled placeholder="Enter your email" autocapitalize="none" spellcheck="false"></div>
           <div class="field"><label for="login-pass">Password</label><div class="password-control"><input id="login-pass" name="password" type="password" autocomplete="current-password" required placeholder="Enter your password"><button id="toggle-password" type="button" aria-label="Show password" aria-pressed="false">Show</button></div></div>
           <div id="register-field" class="field" hidden><label for="register-confirm">Confirm password</label><input id="register-confirm" name="confirm-password" type="password" autocomplete="new-password" required disabled placeholder="Enter your password again"></div>
           <p id="login-msg" class="message" role="status" hidden></p>
           <button id="btn-login" class="btn primary block" type="submit">Sign in <span aria-hidden="true">&#8594;</span></button>
         </form>
         <p class="session-note">Your session stays in this tab. Sign in again after a reload.</p>
-        <div class="login-help"><button id="btn-register" class="btn secondary block" type="button">Create an adopter account</button><p>Shelter team member? Ask your administrator to arrange staff access.</p></div>
-        <details id="connection-settings" class="connection-settings">
-          <summary>Connection settings</summary>
-          <div class="field"><label for="login-api">API URL</label><input id="login-api" type="url" value="https://kylebackend.onrender.com" spellcheck="false" aria-describedby="connection-hint" readonly><small id="connection-hint">This workspace connects to your shelter API.</small></div>
-          <button id="btn-test" class="btn secondary" type="button">Test connection</button>
-          <p id="connection-message" class="message" role="status" hidden></p>
-        </details>
+        <div class="login-help"><button id="btn-register" class="btn secondary block" type="button">Create new account</button><p>Shelter team member? Ask your administrator to arrange staff access.</p></div>
       </div>
       <div class="login-bottom"><span class="connection-dot" aria-hidden="true"></span> Barroga shelter management</div>
     </main>
@@ -64,11 +59,10 @@
     </aside>
     <div class="workspace">
       <header class="topbar">
-        <div class="breadcrumbs"><span>Shelter workspace</span><span aria-hidden="true">/</span><strong id="breadcrumb">Overview</strong></div>
         <div class="account"><span id="topbar-avatar" class="avatar" aria-hidden="true"></span><div><strong id="topbar-user"></strong><small id="topbar-role"></small></div><button id="btn-logout" class="btn quiet" type="button">Sign out</button></div>
       </header>
       <main id="workspace-main" class="content" tabindex="-1">
-        <div class="page-heading"><div><p id="page-eyebrow" class="eyebrow">The day at a glance</p><h1 id="res-title" tabindex="-1">Overview</h1><p id="res-description" class="page-description"></p></div><div class="heading-actions"><span id="today" class="date-label"></span><button id="btn-add" class="btn primary" type="button" hidden>Add animal</button></div></div>
+        <div class="page-heading"><div><p id="page-eyebrow" class="eyebrow">Dashboard</p><h1 id="res-title" tabindex="-1">Overview</h1><p id="res-description" class="page-description"></p></div><div class="heading-actions"><span id="today" class="date-label"></span><button id="btn-add" class="btn primary" type="button" hidden>Add animal</button></div></div>
         <p id="page-message" class="message" role="status" hidden></p>
         <section id="access-panel" class="panel empty" hidden><h2>Access is not set up yet.</h2><p>Your account is signed in. Ask your administrator to provision a shelter role.</p></section>
         <div id="page-content" aria-busy="false">

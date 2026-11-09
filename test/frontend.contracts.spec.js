@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createClient } from "../frontend/js/api.js";
 import { resources, canAccess, canWrite } from "../frontend/js/resources.js";
-import { buildPayload, readRows, deleteOutcome, eligibleAnimals } from "../frontend/js/records.js";
+import { buildPayload, readRows, deleteOutcome, eligibleAnimals, recordName, fieldValue } from "../frontend/js/records.js";
 
 const resource = (key) => resources.find((item) => item.key === key);
 const token = (role = "admin") => `header.${btoa(JSON.stringify({ sub: 7, username: "Alex", role }))}.signature`;
@@ -119,6 +119,17 @@ describe("frontend resource boundaries", () => {
     expect(deleteOutcome(resource("adopter"), { deleted: true, id: 2 }, 2)).toBe("deleted");
     expect(deleteOutcome(resource("users"), { affectedRows: 0 }, 2)).toBe("missing");
     expect(() => deleteOutcome(resource("species"), { deleted: true, species_id: 3 }, 2)).toThrow();
+  });
+
+  it("requires at least 8 characters for a new user password", () => {
+    expect(buildPayload(resource("users"), { username: "Alex", email: "alex@example.com", password: "short" }).errors.password).toContain("at least 8");
+    expect(buildPayload(resource("users"), { username: "Alex", email: "alex@example.com", password: "password123" })).toEqual({ body: { username: "Alex", email: "alex@example.com", password: "password123" }, errors: {} });
+  });
+
+  it("shows record numbers without a hashtag sign", () => {
+    expect(recordName(resource("species"), { species_id: 5 })).toBe("species 5");
+    expect(fieldValue(resource("animal"), { breed_id: 2 }, "breed_id", { breed: [{ breed_id: 2, breed_name: "Aspin" }] })).toBe("Aspin 2");
+    expect(fieldValue(resource("animal"), { breed_id: 9 }, "breed_id", {})).toBe("9");
   });
 
   it("excludes adopted animals but retains the current relationship while editing", () => {

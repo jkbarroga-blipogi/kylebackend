@@ -24,23 +24,23 @@ The backend reads the configured database environment. The local API uses the sa
 
 ## Screens
 
-- Overview: fetched animal, availability, application, and adoption counts.
+- Overview: fetched animal count, plus latest arrivals.
 - Animals, medical records, adopters, applications, and adoptions.
 - Species and breeds.
 - Staff and users.
 - Adopter accounts: Available animals, My applications, and My details.
 
-Categories is removed from the frontend at the owner's request on 2026-11-08.
+Categories is removed entirely at the owner's request (frontend on 2026-11-08, backend on 2026-11-09).
 
 Record screens include search, details, creation, editing, deletion confirmation, loading, empty results, errors, and retry actions. Reference selectors show names and identifiers. A failed write preserves the draft. An uncertain write response requires reloading records before resubmission.
 
 ## API and sessions
 
-The `api-base` meta tag in [index.html](index.html) sets the API origin. It defaults to `https://kylebackend.onrender.com`. Connection settings allow an override on localhost before sign-in. Deployed pages display a read-only URL.
+The `api-base` meta tag in [index.html](index.html) sets the API origin automatically to `https://kylebackend.onrender.com` (Render). There is no connection settings UI. Local preview overrides the origin with `npm run preview -- --api=<origin>`, which the preview server injects into the served HTML.
 
 Access tokens stay in memory. Reloading requires sign-in. The client removes legacy session keys from local storage and never stores passwords or tokens there. A 401 returns to sign-in and keeps the non-password draft in the tab. The draft resumes only for the same account, API origin, and role. Logout or account changes clear it. Explicit re-login replaces the defective backend refresh flow.
 
-Users are created through `POST /auth/register`. Roles stay read-only. New accounts receive the backend's `user` role, displayed as Adopter. Staff, volunteer, and administrator roles require operator provisioning outside this interface. Registration rejects supplied roles.
+Users sign up on the login panel as user accounts through `POST /auth/register` with username, email, and password. Sign in accepts the username or the email. New passwords use at least 8 characters. Roles stay read-only. New accounts receive the backend's `user` role, displayed as Adopter. Staff, volunteer, and administrator roles require operator provisioning outside this interface. Registration rejects supplied roles.
 
 Frontend navigation follows the approved roles:
 
@@ -56,7 +56,7 @@ Backend guards enforce these permissions on direct API requests. JWT validation 
 
 ## Adopter self-service
 
-1. Select Create an adopter account, register, and sign in.
+1. Select Create user account, register with username, email, and password, and sign in.
 2. Choose an animal under Available animals.
 3. Save My details. Each account creates its own linked profile.
 4. Confirm the selected animal and submit the application.

@@ -29,6 +29,8 @@ export function buildPayload(resource, values, original = null) {
       errors[field.name] = "Enter a real calendar date" + (resource.path.startsWith("shelter/") ? " from year 1000 onward." : ".");
     } else if (field.type === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) {
       errors[field.name] = "Enter a valid email address.";
+    } else if (field.minLength && raw.length < field.minLength) {
+      errors[field.name] = `Use at least ${field.minLength} characters.`;
     } else if (field.maxLength && raw.length > field.maxLength) {
       errors[field.name] = `Use ${field.maxLength} characters or fewer.`;
     } else {
@@ -77,7 +79,7 @@ export function eligibleAnimals(animals, adoptions, applications, current = "") 
 }
 
 export function recordName(resource, row) {
-  return row.animal_name || row.username || row.species_name || row.breed_name || row.name || [row.first_name, row.last_name].filter(Boolean).join(" ") || `${resource.singular} #${row[resource.idKey]}`;
+  return row.animal_name || row.username || row.species_name || row.breed_name || row.name || [row.first_name, row.last_name].filter(Boolean).join(" ") || `${resource.singular} ${row[resource.idKey]}`;
 }
 
 export function fieldValue(resource, row, name, references = {}) {
@@ -89,7 +91,7 @@ export function fieldValue(resource, row, name, references = {}) {
     const related = references[field.ref]?.find((item) => String(item[`${field.ref.replace(/-/g, "_")}_id`] ?? item.application_id ?? item.id) === String(value));
     const nested = row[field.ref]?.[`${field.ref}_name`];
     const label = nested || (related && (related.animal_name || related.breed_name || related.species_name || [related.first_name, related.last_name].filter(Boolean).join(" ")));
-    return label ? `${label} #${value}` : `#${value}`;
+    return label ? `${label} ${value}` : `${value}`;
   }
   return String(value);
 }

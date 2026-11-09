@@ -4,14 +4,17 @@ import { readRows } from "./records.js";
 
 function setRegistration(registering) {
   $("login-form").dataset.mode = registering ? "register" : "login";
-  $("login-title").textContent = registering ? "A new beginning." : "Welcome back.";
-  $("login-intro").textContent = registering ? "Create an adopter account to apply for an animal and follow its review." : "Sign in to your Barroga workspace.";
+  $("login-title").textContent = registering ? "Create new account." : "Welcome back.";
+  $("login-intro").textContent = registering ? "Create a new account to apply for an animal and follow its review." : "Sign in to your Barroga workspace.";
+  $("register-email-field").hidden = !registering;
+  $("register-email").disabled = !registering;
+  $("register-email").value = "";
   $("register-field").hidden = !registering;
   $("register-confirm").disabled = !registering;
   $("register-confirm").value = "";
   $("login-pass").autocomplete = registering ? "new-password" : "current-password";
-  $("btn-login").textContent = registering ? "Create adopter account" : "Sign in";
-  $("btn-register").textContent = registering ? "Already registered? Sign in" : "Create an adopter account";
+  $("btn-login").textContent = registering ? "Create new account" : "Sign in";
+  $("btn-register").textContent = registering ? "Already registered? Sign in" : "Create new account";
   message("login-msg", "");
 }
 
@@ -41,10 +44,6 @@ function removeLegacySession() {
 
 export function wireAuth(client, { onLogin, beforeLogout, onLogout }) {
   removeLegacySession();
-  const local = ["127.0.0.1", "localhost", "[::1]"].includes(location.hostname);
-  $("login-api").value = client.base.replace(/\/$/, "");
-  $("login-api").readOnly = !local;
-  if (local) $("connection-hint").textContent = "Local preview: you can change the API here before signing in.";
   $("btn-register").onclick = () => {
     setRegistration($("login-form").dataset.mode !== "register");
     $("login-pass").value = "";
@@ -55,9 +54,20 @@ export function wireAuth(client, { onLogin, beforeLogout, onLogout }) {
     event.preventDefault();
     if ($("btn-login").disabled) return;
     const username = $("login-user").value.trim();
+    const email = $("register-email").value.trim().toLowerCase();
     const password = $("login-pass").value;
     const registering = $("login-form").dataset.mode === "register";
-    if (!username || !password) { message("login-msg", "Enter your username and password.", "error"); return; }
+    if (!username || !password) { message("login-msg", "Enter your username or email and password.", "error"); return; }
+    if (registering && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      message("login-msg", "Enter a valid email address.", "error");
+      $("register-email").focus();
+      return;
+    }
+    if (registering && password.length < 8) {
+      message("login-msg", "Use a password with at least 8 characters.", "error");
+      $("login-pass").focus();
+      return;
+    }
     if (registering && (!password.trim() || new TextEncoder().encode(password).length > 72)) {
       message("login-msg", "Use a nonblank password of at most 72 UTF-8 bytes. Some characters use more than one byte.", "error");
       $("login-pass").focus();
@@ -69,15 +79,13 @@ export function wireAuth(client, { onLogin, beforeLogout, onLogout }) {
       return;
     }
     $("btn-login").disabled = true;
-    $("btn-test").disabled = true;
     $("btn-register").disabled = true;
     $("btn-login").textContent = registering ? "Creating your account..." : "Signing in...";
     message("login-msg", "Connecting to your shelter. The first connection can take up to 90 seconds.");
     let created = false;
     try {
-      if (local) client.setBase($("login-api").value.trim());
       if (registering) {
-        const result = await client.request("auth/register", { method: "POST", auth: false, body: { username, password } });
+        const result = await client.request("auth/register", { method: "POST", auth: false, body: { username, email, password } });
         created = true;
         setRegistration(false);
         const account = readRows(getResource("users"), [result])[0];
@@ -93,9 +101,8 @@ export function wireAuth(client, { onLogin, beforeLogout, onLogout }) {
       message("login-msg", (created ? "Registration accepted. Sign in to continue. " : "") + error.message + (registering && error.uncertain ? " Try signing in before creating another account." : ""), "error");
     } finally {
       $("btn-login").disabled = false;
-      $("btn-test").disabled = false;
       $("btn-register").disabled = false;
-      $("btn-login").textContent = $("login-form").dataset.mode === "register" ? "Create adopter account" : "Sign in";
+      $("btn-login").textContent = $("login-form").dataset.mode === "register" ? "Create new account" : "Sign in";
     }
   };
   $("toggle-password").onclick = () => {
@@ -104,19 +111,6 @@ export function wireAuth(client, { onLogin, beforeLogout, onLogout }) {
     $("toggle-password").textContent = show ? "Hide" : "Show";
     $("toggle-password").setAttribute("aria-label", show ? "Hide password" : "Show password");
     $("toggle-password").setAttribute("aria-pressed", String(show));
-  };
-  $("btn-test").onclick = async () => {
-    $("btn-test").disabled = true;
-    $("btn-login").disabled = true;
-    $("btn-register").disabled = true;
-    message("connection-message", "Connecting. The first response can take up to 90 seconds.");
-    try {
-      if (local) client.setBase($("login-api").value.trim());
-      const data = await client.request("", { auth: false });
-      if (data?.message !== "Server Running Successfully!") throw new Error("The server responded, but its health response is unexpected.");
-      message("connection-message", "Connected to the shelter API.", "success");
-    } catch (error) { message("connection-message", error.message, "error"); }
-    finally { $("btn-test").disabled = false; $("btn-login").disabled = false; $("btn-register").disabled = false; }
   };
   $("btn-logout").onclick = async () => {
     if (!beforeLogout()) return;

@@ -24,7 +24,7 @@ export class AuthController {
   @Post('register')
   async register(@Body() input: unknown) {
     const body = parseRegistration(input);
-    return this.usersService.createUser(body.username, body.password);
+    return this.usersService.createUser(body.username, body.password, body.email);
   }
 
   @Post('login')

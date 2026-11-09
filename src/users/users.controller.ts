@@ -43,7 +43,7 @@ export class UsersController {
   @Put(':id')
   async update(
     @Param('id', ParseIntPipe) id: number,
-    @Body() body: { username?: string; password?: string },
+    @Body() body: { username?: string; password?: string; email?: string | null },
     @Request() req: AuthenticatedRequest,
   ) {
     return this.usersService.updateUser(

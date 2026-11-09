@@ -86,9 +86,8 @@ async function navigate(key, create = false, push = true) {
   const resource = adopter ? adopterPages.find((page) => page.key === key) : getResource(key);
   const overview = key === "overview";
   $("res-title").textContent = resource?.label || "Overview";
-  $("breadcrumb").textContent = resource?.label || "Overview";
-  $("page-eyebrow").textContent = adopter ? "Your adoption journey" : resource?.group || "The day at a glance";
-  $("res-description").textContent = resource?.description || `Welcome back, ${client.session.username}. Here's your shelter at a glance.`;
+  $("page-eyebrow").textContent = adopter ? "Your adoption journey" : resource?.group || "Dashboard";
+  $("res-description").textContent = resource?.description || `Welcome back, ${client.session.username}. Here is what needs your attention today.`;
   $("overview").hidden = !overview;
   $("records-view").hidden = overview || adopter;
   $("adopter-view").hidden = !adopter;
@@ -153,11 +152,10 @@ async function loadOverview() {
   const version = ++loadVersion;
   $("page-content").setAttribute("aria-busy", "true");
   $("overview").innerHTML = '<div class="panel loading" role="status">Getting your shelter overview...</div>';
-  const keys = owner.role === "volunteer" ? ["animal"] : ["animal", "adoption-application", "adoption"];
+  const keys = ["animal"];
   const results = await Promise.allSettled(keys.map(async (key) => readRows(getResource(key), await client.request(getResource(key).path))));
   if (version !== loadVersion || owner !== client.session) return;
   renderOverview(Object.fromEntries(keys.map((key, index) => [key, results[index].status === "fulfilled" ? results[index].value : null])), owner.role);
-  $("btn-overview-reload").onclick = loadOverview;
   $("page-content").setAttribute("aria-busy", "false");
   announce("Shelter overview loaded.");
 }
@@ -227,7 +225,7 @@ $("btn-finalize").onclick = async () => {
     readRows(getResource("adoption-application"), [result]);
     followup = null;
     $("adoption-followup").hidden = true;
-    message("page-message", `Adoption #${saved.adoptionId} and application #${saved.applicationId} are recorded. Other open applications for this animal are rejected.`, "success");
+    message("page-message", `Adoption ${saved.adoptionId} and application ${saved.applicationId} are recorded. Other open applications for this animal are rejected.`, "success");
     if (currentKey === "overview") await loadOverview(); else await loadTable();
   } catch (error) {
     if (owner === client.session && followup === saved && error.status !== 401) message("followup-message", "Adoption saved. Application status still needs updating. " + error.message, "error");

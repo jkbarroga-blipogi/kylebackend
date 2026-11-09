@@ -6,7 +6,7 @@ import { $, escapeHtml as esc, icon, message, announce, badge } from "./ui.js";
 export function fieldMarkup(field, row) {
   const required = field.required || (field.createRequired && !row);
   const value = field.type === "password" ? "" : field.type === "date" ? dateValue(row?.[field.name]) : row?.[field.name] ?? (!row ? field.defaultValue : "") ?? "";
-  const attrs = `id="f-${field.name}" name="${field.name}" ${required ? "required" : ""} aria-describedby="hint-${field.name} error-${field.name}" ${field.maxLength ? `maxlength="${field.maxLength}"` : ""}`;
+  const attrs = `id="f-${field.name}" name="${field.name}" ${required ? "required" : ""} aria-describedby="hint-${field.name} error-${field.name}" ${field.maxLength ? `maxlength="${field.maxLength}"` : ""} ${field.minLength ? `minlength="${field.minLength}"` : ""}`;
   let control;
   if (field.ref) control = `<select ${attrs} disabled><option value="">Loading choices...</option></select>`;
   else if (field.type === "select") {
@@ -153,7 +153,7 @@ export function createEditor(client, { onSaved, onReload, onDelete }) {
     panel.hidden = false;
     if (mode === "view" && row) {
       const names = [...new Set([resource.idKey, ...resource.fields.filter((field) => field.type !== "password").map((field) => field.name), ...resource.columns])];
-      panel.innerHTML = heading(recordName(resource, row), `${resource.singular} #${row[resource.idKey]}`)
+      panel.innerHTML = heading(recordName(resource, row), `${resource.singular} ${row[resource.idKey]}`)
         + `<dl class="detail-list">${names.map((name) => `<div><dt>${esc(resource.fields.find((field) => field.name === name)?.label || name.replace(/_/g, " "))}</dt><dd>${name.includes("status") || name === "role" ? badge(row[name]) : esc(fieldValue(resource, row, name))}</dd></div>`).join("")}</dl>`
         + (writable ? '<div class="form-actions"><button id="btn-detail-edit" class="btn primary" type="button">Edit record</button><button id="btn-detail-delete" class="btn danger" type="button">Delete</button></div>' : "");
       if (writable) {
@@ -162,7 +162,7 @@ export function createEditor(client, { onSaved, onReload, onDelete }) {
       }
       wireClose(); $("form-title").focus(); return;
     }
-    panel.innerHTML = heading(row ? `Edit ${resource.singular}` : `Add ${resource.singular}`, row ? `Record #${row[resource.idKey]}` : "New record")
+    panel.innerHTML = heading(row ? `Edit ${resource.singular}` : `Add ${resource.singular}`, row ? `Record ${row[resource.idKey]}` : "New record")
       + `<form id="record-form" novalidate><div id="form-message" class="message form-summary" tabindex="-1" role="alert" hidden></div><div id="reference-message" class="message" role="status" hidden></div>`
       + (resource.key === "users" ? `<p class="field-hint form-summary">Role: ${esc(row?.role || "user (adopter)")}. Role changes require administrator provisioning outside this interface.</p>` : "")
       + (resource.key === "adoption" ? '<p class="field-hint form-summary">Choose a nonfinal application. Its animal and adopter are filled in for you. Save the adoption before marking the application adopted.</p>' : "")
