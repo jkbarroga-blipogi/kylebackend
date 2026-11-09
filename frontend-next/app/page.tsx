@@ -114,7 +114,7 @@ export default function Home() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/mark.svg" alt="" width={40} height={40} />
             <span className="text-xl font-semibold tracking-tight">
-              barroga
+              Animal
               <span className="mt-1 block text-[11px] font-normal tracking-normal text-muted-foreground">Shelter workspace</span>
             </span>
           </div>
