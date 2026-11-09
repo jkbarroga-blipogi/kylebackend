@@ -11,7 +11,6 @@ const icons: Record<string, ComponentType<{ className?: string; "aria-hidden"?: 
   overview: LayoutDashboard,
   animal: PawPrint,
   "available-animals": PawPrint,
-  "all-animals": PawPrint,
   "medical-record": HeartPulse,
   adopter: Users,
   "adoption-application": ClipboardList,
@@ -41,8 +40,8 @@ export function AppShell({ username, role, currentKey, groups, onNavigate, onLog
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/mark.svg" alt="" width={40} height={40} />
           <span className="text-xl font-semibold tracking-tight">
-            barroga
-            <span className="mt-1 block text-[11px] font-normal tracking-normal text-muted-foreground">Shelter workspace</span>
+            Animal 
+            <span className="mt-1 block text-[11px] font-normal tracking-normal text-muted-foreground">Shelter management</span>
           </span>
         </div>
         <div className="rounded-xl border border-border bg-secondary p-4">
