@@ -1,0 +1,102 @@
+"use client";
+
+import type { ComponentType, ReactNode } from "react";
+import { Badge, ClipboardList, HeartPulse, Home, LayoutDashboard, PawPrint, Shield, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+export type NavItem = { key: string; label: string };
+export type NavGroup = { label: string; items: NavItem[] };
+
+const icons: Record<string, ComponentType<{ className?: string; "aria-hidden"?: boolean | "true" | "false" }>> = {
+  overview: LayoutDashboard,
+  animal: PawPrint,
+  "available-animals": PawPrint,
+  "medical-record": HeartPulse,
+  adopter: Users,
+  "adoption-application": ClipboardList,
+  adoption: Home,
+  staff: Badge,
+  users: Shield,
+  "my-applications": ClipboardList,
+  "my-details": Users,
+};
+
+type AppShellProps = {
+  username: string;
+  role: string;
+  currentKey: string;
+  groups: NavGroup[];
+  onNavigate: (key: string) => void;
+  onLogout: () => void;
+  children: ReactNode;
+};
+
+export function AppShell({ username, role, currentKey, groups, onNavigate, onLogout, children }: AppShellProps) {
+  const displayRole = role === "user" ? "Adopter" : role;
+  return (
+    <div className="grid min-h-dvh grid-cols-1 lg:grid-cols-[232px_minmax(0,1fr)]">
+      <aside className="flex flex-col gap-8 border-b border-border bg-card p-6 lg:border-r lg:border-b-0">
+        <div className="flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/mark.svg" alt="" width={40} height={40} />
+          <span className="text-xl font-semibold tracking-tight">
+            barroga
+            <span className="mt-1 block text-[11px] font-normal tracking-normal text-muted-foreground">Shelter workspace</span>
+          </span>
+        </div>
+        <div className="rounded-xl border border-border bg-secondary p-4">
+          <div className="flex items-center gap-3">
+            <span className="grid size-9 shrink-0 place-items-center rounded-full border border-primary bg-[#24223b] text-sm font-semibold text-[#c7caff]" aria-hidden="true">
+              {username.charAt(0).toUpperCase()}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold">{username}</p>
+              <p className="text-xs text-muted-foreground capitalize">{displayRole}</p>
+            </div>
+          </div>
+          <Button type="button" variant="ghost" className="mt-3 w-full" onClick={onLogout}>
+            Sign out
+          </Button>
+        </div>
+        <nav aria-label="Workspace navigation" className="grid gap-6">
+          {groups.map((group) => (
+            <div key={group.label}>
+              <p className="mb-2 px-3 text-[11px] font-semibold tracking-[0.1em] text-muted-foreground uppercase">{group.label}</p>
+              <div className="grid gap-0.5">
+                {group.items.map((item) => {
+                  const Icon = icons[item.key] ?? LayoutDashboard;
+                  const active = currentKey === item.key;
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      aria-current={active ? "page" : undefined}
+                      onClick={() => onNavigate(item.key)}
+                      className={
+                        active
+                          ? "flex min-h-11 items-center gap-3 rounded-lg border border-[#4c4a82] bg-[#23223d] px-3 py-2.5 text-sm text-[#c7caff]"
+                          : "flex min-h-11 items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      }
+                    >
+                      <Icon className="size-5" aria-hidden="true" />
+                      <span>{item.label}</span>
+                      {active ? <span className="ml-auto size-1.5 rounded-full bg-[#a5adff]" aria-hidden="true" /> : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
+      </aside>
+      <div className="min-w-0">
+        <header className="flex min-h-20 items-center justify-end border-b border-border px-8">
+          <p className="text-sm text-muted-foreground">
+            {new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" }).format(new Date())}
+          </p>
+        </header>
+        <main className="mx-auto w-full max-w-[1600px] p-8">{children}</main>
+      </div>
+    </div>
+  );
+}
