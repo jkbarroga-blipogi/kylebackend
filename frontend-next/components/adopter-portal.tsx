@@ -40,12 +40,12 @@ function Badge({ value }: { value: unknown }) {
   const status = String(value ?? "Not set");
   const key = status.trim().toLowerCase();
   const color = ["available", "adopted", "completed", "approved"].includes(key)
-    ? "text-[#75dcb4] border-[#285846] bg-[#162a24]"
+    ? "status-positive"
     : ["pending", "review"].includes(key)
-      ? "text-[#f4cf83] border-[#655333] bg-[#2c261b]"
+      ? "status-warning"
       : ["rejected", "cancelled", "canceled"].includes(key)
-        ? "text-[#ff9eae] border-[#76404e] bg-[#321e27]"
-        : "text-foreground border-[#424d61] bg-secondary";
+        ? "status-negative"
+        : "status-neutral";
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${color}`}>
       <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
@@ -179,7 +179,7 @@ function AvailableAnimals({ onNavigate }: { onNavigate: (key: string) => void })
             </div>
           ) : null}
           {selected ? (
-            <Card className="border-[#55517b]">
+            <Card className="border-border">
               <CardContent className="pt-6">
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -384,7 +384,7 @@ function AllAnimals({ onNavigate }: { onNavigate: (key: string) => void }) {
             </div>
           ) : null}
           {selected ? (
-            <Card className="border-[#55517b]">
+            <Card className="border-border">
               <CardContent className="pt-6">
                 <div className="flex items-start justify-between gap-3">
                   <div>

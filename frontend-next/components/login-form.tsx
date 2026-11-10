@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { ArrowRight, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, UserRound } from "lucide-react";
+import { LoginFormHeading } from "@/components/login-form-heading";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -74,79 +76,84 @@ export function LoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-[380px]">
-      <CardContent className="flex flex-col gap-6 pt-6">
-        <div>
-          <p className="text-xs font-semibold tracking-[0.13em] text-muted-foreground uppercase">Your shelter, in view</p>
-          <h1 className="mt-4 text-4xl font-semibold tracking-tight">{registering ? "Create new account." : "Welcome back."}</h1>
-          <p className="mt-3 text-muted-foreground">
-            {registering ? "Create a new account to apply for an animal and follow its review." : "Sign in to your Barroga workspace."}
-          </p>
-        </div>
-        <form method="post" onSubmit={onSubmit} className="grid gap-6" noValidate>
-          <div className="grid gap-2">
-            <Label htmlFor="login-user">{registering ? "Username" : "Username or Email"}</Label>
-            <Input
-              id="login-user"
-              name="username"
-              autoComplete="username"
-              maxLength={255}
-              required
-              placeholder={registering ? "Enter your username" : "Enter your username or email"}
-              autoCapitalize="none"
-              spellCheck={false}
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-            />
-          </div>
-          {registering ? (
-            <div className="grid gap-2">
-              <Label htmlFor="register-email">Email</Label>
+    <Card className={registering ? "auth-form auth-form-register" : "auth-form"}>
+      <CardContent className="auth-form-content">
+        <LoginFormHeading registering={registering} />
+        <form method="post" onSubmit={onSubmit} className="auth-fields" noValidate aria-labelledby="auth-title">
+          <div className="auth-field">
+            <Label htmlFor="login-user">{registering ? "Username" : "Username or email"}</Label>
+            <div className="auth-input-shell">
+              <UserRound className="auth-field-icon" aria-hidden="true" />
               <Input
-                id="register-email"
-                name="email"
-                type="email"
-                autoComplete="email"
+                id="login-user"
+                name="username"
+                autoComplete="username"
                 maxLength={255}
                 required
-                placeholder="Enter your email"
+                placeholder={registering ? "Choose a username" : "Enter your username or email"}
                 autoCapitalize="none"
                 spellCheck={false}
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
+                className="auth-text-input"
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
               />
             </div>
+          </div>
+          {registering ? (
+            <div className="auth-field">
+              <Label htmlFor="register-email">Email address</Label>
+              <div className="auth-input-shell">
+                <Mail className="auth-field-icon" aria-hidden="true" />
+                <Input
+                  id="register-email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  maxLength={255}
+                  required
+                  placeholder="you@example.com"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  className="auth-text-input"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                />
+              </div>
+            </div>
           ) : null}
-          <div className="grid gap-2">
+          <div className="auth-field">
             <Label htmlFor="login-pass">Password</Label>
-            <div className="flex overflow-hidden rounded-lg border border-input bg-secondary">
+            <div className="auth-input-shell password-control">
+              <LockKeyhole className="auth-field-icon" aria-hidden="true" />
               <Input
                 id="login-pass"
                 name="password"
                 type={showPassword ? "text" : "password"}
                 autoComplete={registering ? "new-password" : "current-password"}
                 required
-                placeholder="Enter your password"
-                className="border-0 bg-transparent"
+                placeholder={registering ? "At least 8 characters" : "Enter your password"}
+                className="auth-text-input"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
               />
               <Button
                 type="button"
                 variant="ghost"
+                size="icon"
                 aria-label={showPassword ? "Hide password" : "Show password"}
                 aria-pressed={showPassword}
                 onClick={() => setShowPassword((value) => !value)}
-                className="min-w-[60px] rounded-none"
+                className="auth-password-toggle"
               >
-                {showPassword ? "Hide" : "Show"}
+                {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
               </Button>
             </div>
           </div>
           {registering ? (
-            <div className="grid gap-2">
+            <div className="auth-field">
               <Label htmlFor="register-confirm">Confirm password</Label>
-              <div className="flex overflow-hidden rounded-lg border border-input bg-secondary">
+              <div className="auth-input-shell password-control">
+                <LockKeyhole className="auth-field-icon" aria-hidden="true" />
                 <Input
                   id="register-confirm"
                   name="confirm-password"
@@ -154,37 +161,39 @@ export function LoginForm() {
                   autoComplete="new-password"
                   required
                   placeholder="Enter your password again"
-                  className="border-0 bg-transparent"
+                  className="auth-text-input"
                   value={confirm}
                   onChange={(event) => setConfirm(event.target.value)}
                 />
                 <Button
                   type="button"
                   variant="ghost"
+                  size="icon"
                   aria-label={showConfirm ? "Hide confirm password" : "Show confirm password"}
                   aria-pressed={showConfirm}
                   onClick={() => setShowConfirm((value) => !value)}
-                  className="min-w-[60px] rounded-none"
+                  className="auth-password-toggle"
                 >
-                  {showConfirm ? "Hide" : "Show"}
+                  {showConfirm ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
                 </Button>
               </div>
             </div>
           ) : null}
-          {message ? (
-            <Alert variant={busy ? "default" : "destructive"}>{message}</Alert>
-          ) : null}
-          <Button type="submit" disabled={busy} className="w-full justify-between">
+          {message ? <Alert variant={busy ? "default" : "destructive"}>{message}</Alert> : null}
+          <Button type="submit" disabled={busy} className="auth-submit">
             {busy ? (registering ? "Creating your account..." : "Signing in...") : registering ? "Create new account" : "Sign in"}
-            <span aria-hidden="true">-&gt;</span>
+            {busy ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}
           </Button>
         </form>
-        <p className="text-sm leading-relaxed text-muted-foreground">Your session is saved securely. You stay signed in after a reload.</p>
-        <div className="border-t border-border pt-6">
-          <Button type="button" variant="secondary" className="w-full" onClick={toggleMode} disabled={busy}>
-            {registering ? "Already registered? Sign in" : "Create new account"}
-          </Button>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Shelter team member? Ask your administrator to arrange staff access.</p>
+        <p className="auth-session-note"><LockKeyhole size={12} aria-hidden="true" />Your workspace stays signed in on this tab.</p>
+        <div className="auth-form-bottom">
+          <div className="auth-mode-line">
+            <span>{registering ? "Already have an account?" : "New to Animal?"}</span>
+            <Button type="button" variant="ghost" className="auth-mode-toggle" onClick={toggleMode} disabled={busy}>
+              {registering ? "Sign in" : "Create new account"}
+            </Button>
+          </div>
+          <p className="auth-access-note">Shelter team member? Ask your administrator to arrange staff access.</p>
         </div>
       </CardContent>
     </Card>

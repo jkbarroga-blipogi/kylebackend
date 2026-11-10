@@ -1,0 +1,126 @@
+# UI diagnostic audit: 2026-11-10
+
+## Target
+
+Barroga frontend-next. Web application using Next.js 16.4.5, React 19, and Tailwind 4.
+The user requests a minimal, clean UI and confirms the original dark colors and purple accents.
+
+## Applied changes
+
+- Preserve the original theme colors, logo color, authentication behavior, and staged page copy.
+- Simplify the login form and improve spacing and typography.
+- Add a compact responsive navigation layout, desktop sidebar, and account header.
+- Keep mobile account identity available to screen readers and add a skip link.
+- Show total, available, and adopted counts derived from the existing animal response.
+- Restyle tables, controls, and status labels consistently.
+- Give record search full width on mobile.
+- Contain absolute screen-reader table headings inside the table scroll region.
+- Preserve the existing sign-out confirmation and all original event handlers.
+
+## Verification
+
+- Production build passes.
+- TypeScript noEmit check passes.
+- Existing Vitest suite: 14 tests pass across 3 files.
+- Browser checks use isolated mocked API responses, with no real accounts or record writes.
+- Login, dashboard, animal table, and adopter portal fit widths 320, 375, 425, 768, 1024, 1440.
+- Registration, sign-out dialog, and animal editor fit at 320 pixels.
+- Check empty login validation, registration toggle, password visibility, navigation, record search,
+  sign-out cancellation, derived counts, and mobile account accessibility.
+- No browser page errors occur in the smoke pass.
+- Lint retains 11 existing errors and 2 existing warnings. Baseline comparison finds no new diagnostics.
+- Screenshots remain in .sauron/ui-review/. Backups and checksums use ConflictManager.
+
+## Local preview
+
+http://127.0.0.1:3100
+
+No dependency, backend, authentication, or deployment changes are part of this UI work.
+
+## Login page refinement
+
+- Preserve the original dark background and purple primary color.
+- Add a framed welcome panel with a generated decorative dog-and-cat portrait.
+- The optimized public/login-companions.webp asset is 1086 by 1448 pixels and 88,346 bytes.
+- Add labeled field icons, password visibility icons, and a clearer submit/loading state.
+- Simplify the account-mode prompt and keep the mobile header compact.
+- Input borders retain the original higher-contrast control color.
+- Keep the loading status outside an aria-busy region so it can announce promptly.
+- Authentication state and handlers match the pre-edit source exactly.
+- Sign-in and registration fit 320, 375, 425, 768, 1024, and 1440 pixel widths.
+- Browser checks cover empty-form validation, email format, password mismatch, visibility toggles,
+  mode switching, busy feedback, duplicate-submit locking, and successful mocked sign-in.
+- Build, typecheck, and all 14 existing tests pass. No new lint diagnostics appear.
+- Login screenshots use the login-v2 prefix in .sauron/ui-review/.
+
+## Compact login and registration card
+
+- User requests a visible card on the right and a smaller create-account screen.
+- Give both forms a 440px maximum width, dark panel, border, rounded corners, and shadow.
+- Reduce heading size, field gaps, and outer padding. Keep all interactive controls at least 44px tall.
+- Simplify the registration introduction and omit its decorative emblem, kicker, and session note.
+- At 1366 by 768, registration height drops from about 849px to 620px.
+- Both modes fit 1280 by 720 and 1366 by 768 without page scrolling.
+- Registration fits 375 by 812. Shorter mobile screens scroll naturally without clipping controls.
+- Browser checks cover both modes at ten viewport sizes from 320 by 568 to 1920 by 1080.
+- Verify validation messages, password visibility, focus, mobile input text, and mode switching.
+- At 200% CSS zoom, validation and submit remain reachable without horizontal overflow.
+- Authentication state and handlers match the previous source. Original colors remain unchanged.
+- Build, typecheck, and 14 existing tests pass. The login form adds no lint diagnostics.
+- Screenshots use the login-card prefix in .sauron/ui-review/.
+
+## Welcome portrait framing
+
+- User supplies a reference with the welcome copy above the dog's face.
+- Remove the desktop logo row and extra top gap to move the welcome copy upward.
+- Contain the full portrait instead of cropping its headroom with bottom-aligned cover.
+- Blend the image edges into the dark panel with a CSS mask.
+- Keep the compact login/registration card, original palette, and authentication untouched.
+- Browser checks cover both modes at ten viewport sizes from 320 by 568 to 1920 by 1080.
+- On desktop, verify the copy ends above the dog's ears and the footer stays below both faces.
+- Both modes retain viewport-height pages on the tested laptops, including 1280 by 720.
+- Production build, TypeScript in the build, all 14 tests, and welcome component lint pass.
+- Final screenshots use the portrait-final prefix in .sauron/ui-review/.
+
+## Logo restoration
+
+- Restore the original purple Animal logo and Shelter management label in the welcome panel's
+  upper-right corner. Keep the existing mobile brand above the form.
+- Absolute placement preserves the clear portrait and compact card dimensions in both modes.
+- Browser checks pass at 320, 375, 1024, 1280, 1366, and 1920 pixel widths with no text overlap.
+- Production build, TypeScript, all 14 tests, and welcome component lint pass.
+- Screenshots use the logo-restored prefix.
+
+## Dedicated login loading state
+
+- The supplied recording shows the Overview skeleton during the anonymous session check.
+- Replace the unconditional workspace fallback with the existing auth layout and LoginSkeleton.
+- Keep the welcome portrait, desktop/mobile logo, and compact card visible while checking the session.
+- Share LoginFormHeading between the skeleton and form to preserve heading dimensions and copy.
+- Skeleton fields are noninteractive and hidden from accessibility APIs. One status announces loading.
+- Keep AuthProvider, login handlers, cached-session behavior, and dashboard data skeletons unchanged.
+- Delayed-refresh checks at 320, 375, 425, 768, 1024, and 1440 pixels pass.
+- The skeleton-to-form height difference stays below 1px. Reduced motion disables the pulse.
+- Successful refresh reaches Overview and its own data skeleton. Rejected refresh shows login.
+- Cached sessions still restore immediately, then return to login when background refresh rejects.
+- Production build, TypeScript, and all 14 tests pass. No new lint diagnostics or browser errors.
+- Screenshots use the login-skeleton prefix in .sauron/ui-review/.
+
+## Left-aligned logo
+
+- Move the desktop logo to the upper-left as requested and align the kicker to the right.
+- Tighten the welcome copy spacing to preserve clear animal faces on short, wide screens.
+- Browser checks verify alignment, no overlaps, and unchanged laptop page height.
+- Mobile branding remains left-aligned. Production build and TypeScript pass.
+- Screenshot: .sauron/ui-review/logo-left-1366.png.
+
+## Shared initial headline
+
+- Remove the right-side Care, connected label as requested.
+- Use one oversized A beside the stacked little care and better tomorrow lines.
+- Preserve the full heading phrase for accessibility while hiding the decorative composition.
+- Keep the logo upper-left in normal flow and retain portrait headroom on short screens.
+- Browser checks cover mobile and desktop through 1920 by 720 and 1920 by 1080.
+- No copy/face overlap, horizontal overflow, or laptop-height growth occurs.
+- Production build, TypeScript, and welcome component lint pass.
+- Screenshots use the shared-a prefix.

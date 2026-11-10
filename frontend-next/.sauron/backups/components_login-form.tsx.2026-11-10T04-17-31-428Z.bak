@@ -1,0 +1,207 @@
+"use client";
+
+import { useState, type FormEvent } from "react";
+import { ArrowRight, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, PawPrint, UserRound } from "lucide-react";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useAuth } from "@/lib/auth-context";
+
+export function LoginForm() {
+  const { login, register } = useAuth();
+  const [registering, setRegistering] = useState(false);
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  function toggleMode() {
+    setRegistering((value) => !value);
+    setPassword("");
+    setConfirm("");
+    setMessage("");
+  }
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy) return;
+    const identifier = username.trim();
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!identifier || !password) {
+      setMessage(registering ? "Enter your username, email, and password." : "Enter your username or email and password.");
+      return;
+    }
+    if (registering && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setMessage("Enter a valid email address.");
+      return;
+    }
+    if (registering && password.length < 8) {
+      setMessage("Use a password with at least 8 characters.");
+      return;
+    }
+    if (registering && (!password.trim() || new TextEncoder().encode(password).length > 72)) {
+      setMessage("Use a nonblank password of at most 72 UTF-8 bytes. Some characters use more than one byte.");
+      return;
+    }
+    if (registering && password !== confirm) {
+      setMessage("Passwords do not match. Enter the same password in both fields.");
+      return;
+    }
+    setBusy(true);
+    setMessage("Connecting to your shelter. The first connection can take up to 90 seconds.");
+    let created = false;
+    try {
+      if (registering) {
+        await register(identifier, normalizedEmail, password);
+        created = true;
+        setRegistering(false);
+      }
+      await login(identifier, password);
+      setPassword("");
+      setConfirm("");
+      setMessage("");
+    } catch (error) {
+      const text = error instanceof Error ? error.message : "Something went wrong. Please try again.";
+      setMessage((created ? "Registration accepted. Sign in to continue. " : "") + text);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className={registering ? "auth-form auth-form-register" : "auth-form"}>
+      <CardContent className="auth-form-content">
+        <div className="auth-form-heading">
+          <span className="auth-form-symbol"><PawPrint size={22} aria-hidden="true" /></span>
+          <p className="auth-kicker">Your shelter, in view</p>
+          <h1 id="auth-title">{registering ? "Create new account." : "Welcome back."}</h1>
+          <p className="auth-form-description">
+            {registering ? "Create an account to start your adoption journey." : "A little care goes a long way. Sign in to your shelter workspace."}
+          </p>
+        </div>
+        <form method="post" onSubmit={onSubmit} className="auth-fields" noValidate aria-labelledby="auth-title">
+          <div className="auth-field">
+            <Label htmlFor="login-user">{registering ? "Username" : "Username or email"}</Label>
+            <div className="auth-input-shell">
+              <UserRound className="auth-field-icon" aria-hidden="true" />
+              <Input
+                id="login-user"
+                name="username"
+                autoComplete="username"
+                maxLength={255}
+                required
+                placeholder={registering ? "Choose a username" : "Enter your username or email"}
+                autoCapitalize="none"
+                spellCheck={false}
+                className="auth-text-input"
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+              />
+            </div>
+          </div>
+          {registering ? (
+            <div className="auth-field">
+              <Label htmlFor="register-email">Email address</Label>
+              <div className="auth-input-shell">
+                <Mail className="auth-field-icon" aria-hidden="true" />
+                <Input
+                  id="register-email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  maxLength={255}
+                  required
+                  placeholder="you@example.com"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  className="auth-text-input"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                />
+              </div>
+            </div>
+          ) : null}
+          <div className="auth-field">
+            <Label htmlFor="login-pass">Password</Label>
+            <div className="auth-input-shell password-control">
+              <LockKeyhole className="auth-field-icon" aria-hidden="true" />
+              <Input
+                id="login-pass"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete={registering ? "new-password" : "current-password"}
+                required
+                placeholder={registering ? "At least 8 characters" : "Enter your password"}
+                className="auth-text-input"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-pressed={showPassword}
+                onClick={() => setShowPassword((value) => !value)}
+                className="auth-password-toggle"
+              >
+                {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+              </Button>
+            </div>
+          </div>
+          {registering ? (
+            <div className="auth-field">
+              <Label htmlFor="register-confirm">Confirm password</Label>
+              <div className="auth-input-shell password-control">
+                <LockKeyhole className="auth-field-icon" aria-hidden="true" />
+                <Input
+                  id="register-confirm"
+                  name="confirm-password"
+                  type={showConfirm ? "text" : "password"}
+                  autoComplete="new-password"
+                  required
+                  placeholder="Enter your password again"
+                  className="auth-text-input"
+                  value={confirm}
+                  onChange={(event) => setConfirm(event.target.value)}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={showConfirm ? "Hide confirm password" : "Show confirm password"}
+                  aria-pressed={showConfirm}
+                  onClick={() => setShowConfirm((value) => !value)}
+                  className="auth-password-toggle"
+                >
+                  {showConfirm ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+                </Button>
+              </div>
+            </div>
+          ) : null}
+          {message ? <Alert variant={busy ? "default" : "destructive"}>{message}</Alert> : null}
+          <Button type="submit" disabled={busy} className="auth-submit">
+            {busy ? (registering ? "Creating your account..." : "Signing in...") : registering ? "Create new account" : "Sign in"}
+            {busy ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}
+          </Button>
+        </form>
+        <p className="auth-session-note"><LockKeyhole size={12} aria-hidden="true" />Your workspace stays signed in on this tab.</p>
+        <div className="auth-form-bottom">
+          <div className="auth-mode-line">
+            <span>{registering ? "Already have an account?" : "New to Animal?"}</span>
+            <Button type="button" variant="ghost" className="auth-mode-toggle" onClick={toggleMode} disabled={busy}>
+              {registering ? "Sign in" : "Create new account"}
+            </Button>
+          </div>
+          <p className="auth-access-note">Shelter team member? Ask your administrator to arrange staff access.</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

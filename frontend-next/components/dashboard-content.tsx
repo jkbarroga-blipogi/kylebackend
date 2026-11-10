@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ArrowUpRight, Heart, House, PawPrint } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -46,9 +47,15 @@ export function DashboardContent() {
     .sort((a, b) => String(b.arrival_date).localeCompare(String(a.arrival_date)))
     .slice(0, 5);
 
+  const stats = [
+    { label: "Total animals", value: rows?.length, note: "Every animal in your care", icon: PawPrint },
+    { label: "Available for adoption", value: rows?.filter((animal) => String(animal.adoption_status ?? "").trim().toLowerCase() === "available").length, note: "Ready for a new beginning", icon: Heart },
+    { label: "Adopted", value: rows?.filter((animal) => String(animal.adoption_status ?? "").trim().toLowerCase() === "adopted").length, note: "A place to call home", icon: House },
+  ];
+
   return (
     <div>
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-6">
+      <div className="dashboard-heading flex flex-wrap items-end justify-between gap-5">
         <div>
           <p className="text-xs font-semibold tracking-[0.13em] text-muted-foreground uppercase">Dashboard</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Overview</h1>
@@ -56,6 +63,9 @@ export function DashboardContent() {
             Welcome back, {session?.username}. Here is what needs your attention today.
           </p>
         </div>
+        <a href="?resource=animal" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-input bg-card px-4 text-xs font-medium text-foreground hover:bg-secondary">
+          View animals <ArrowUpRight className="size-4" aria-hidden="true" />
+        </a>
       </div>
       {error ? (
         <Alert variant="destructive" className="mb-6">
@@ -65,25 +75,28 @@ export function DashboardContent() {
           </Button>
         </Alert>
       ) : null}
-      <div className="grid gap-4" role="status" aria-label="Loading dashboard">
-        <Card>
-          <CardContent className="flex flex-col gap-2 pt-6">
-            <p className="text-sm text-muted-foreground">Total animals</p>
-            {rows === null && !error ? (
-              <Skeleton className="h-10 w-20" />
-            ) : (
-              <p className="text-4xl font-medium tracking-tight tabular-nums">{rows === null ? "Unavailable" : rows.length}</p>
-            )}
-            <p className="text-xs text-muted-foreground">{rows === null && !error ? "Loading..." : rows === null ? "Could not load. Retry to continue." : "Updated just now"}</p>
-          </CardContent>
-        </Card>
+      <div className="dashboard-stats" aria-label="Shelter overview" aria-busy={rows === null && !error}>
+        {stats.map(({ label, value, note, icon: Icon }) => (
+          <Card key={label}>
+            <CardContent className="dashboard-stat">
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-muted-foreground">{label}</p>
+                {rows === null && !error ? <Skeleton className="mt-3 h-10 w-16" /> : <p className="stat-value">{value ?? <span className="text-base text-muted-foreground">Unavailable</span>}</p>}
+                <p className="mt-3 text-[11px] text-muted-foreground">{note}</p>
+              </div>
+              <span className="stat-icon"><Icon className="size-[18px]" aria-hidden="true" /></span>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <div className="grid gap-4" aria-busy={rows === null && !error}>
         <Card>
           <div className="flex items-center justify-between gap-3 border-b border-border p-6">
             <div>
               <h2 className="text-lg font-semibold">Latest arrivals</h2>
               <p className="mt-1 text-sm text-muted-foreground">The newest faces in your shelter.</p>
             </div>
-            <a href="?resource=animal" className="inline-flex min-h-8 items-center text-sm no-underline">View all</a>
+            <a href="?resource=animal" className="inline-flex min-h-11 shrink-0 items-center gap-1 text-xs font-medium text-[#a5adff] no-underline">View all <ArrowUpRight className="size-3.5" aria-hidden="true" /></a>
           </div>
           {rows === null && !error ? (
             <div className="grid gap-3 p-6" aria-hidden="true">
@@ -102,17 +115,17 @@ export function DashboardContent() {
                 <li key={animal.animal_id} className="flex items-center gap-3 border-b border-border py-5 last:border-b-0">
                   {animal.image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={animal.image_url} alt="" className="size-10 shrink-0 rounded-lg border border-border object-cover" />
+                    <img src={animal.image_url} alt="" className="size-11 shrink-0 rounded-lg border border-border object-cover" />
                   ) : (
-                    <span className="grid size-10 shrink-0 place-items-center rounded-lg border border-border bg-secondary text-[#a5adff]">P</span>
+                    <span className="grid size-11 shrink-0 place-items-center rounded-lg border border-border bg-secondary text-[#a5adff]"><PawPrint className="size-5" aria-hidden="true" /></span>
                   )}
                   <span className="min-w-0 flex-1">
-                    <strong className="block font-medium">{animal.animal_name}</strong>
-                    <small className="mt-0.5 block text-muted-foreground">
+                    <strong className="block text-sm font-medium">{animal.animal_name}</strong>
+                    <small className="mt-1 block text-xs text-muted-foreground">
                       {animal.animal_id} - Arrived {dateValue(animal.arrival_date) || "date unavailable"}
                     </small>
                   </span>
-                  <span className="rounded-full border border-border bg-secondary px-2.5 py-1 text-xs">{animal.adoption_status}</span>
+                  <span className="status-neutral shrink-0 rounded-full border px-2.5 py-1 text-[11px]">{animal.adoption_status}</span>
                 </li>
               ))}
             </ul>

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ComponentType, ReactNode } from "react";
+import { useState, type ComponentType, type ReactNode } from "react";
 import { Badge, ClipboardList, HeartPulse, Home, LayoutDashboard, PawPrint, Shield, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -33,54 +33,44 @@ type AppShellProps = {
 
 export function AppShell({ username, role, currentKey, groups, onNavigate, onLogout, children }: AppShellProps) {
   const displayRole = role === "user" ? "Adopter" : role;
+  const currentLabel = groups.flatMap((group) => group.items).find((item) => item.key === currentKey)?.label ?? "Workspace";
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+
+  async function signOut() {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await onLogout();
+    } finally {
+      setLoggingOut(false);
+      setConfirming(false);
+    }
+  }
   return (
-    <div className="grid min-h-dvh grid-cols-1 lg:grid-cols-[232px_minmax(0,1fr)]">
-      <aside className="flex flex-col gap-8 border-b border-border bg-card p-6 lg:border-r lg:border-b-0">
-        <div className="flex items-center gap-3">
+    <div className="workspace-shell">
+      <a href="#workspace-content" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-lg focus:bg-card focus:p-3">Skip to content</a>
+      <aside className="workspace-sidebar">
+        <div className="workspace-brand">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/mark.svg" alt="" width={40} height={40} />
-          <span className="text-xl font-semibold tracking-tight">
-            Animal 
-            <span className="mt-1 block text-[11px] font-normal tracking-normal text-muted-foreground">Shelter management</span>
+          <img src="/mark.svg" alt="" width={36} height={36} />
+          <span className="text-lg font-semibold tracking-tight">
+            Animal
+            <span className="mt-0.5 block text-[10px] font-normal tracking-normal text-muted-foreground">Shelter management</span>
           </span>
         </div>
-        <div className="rounded-xl border border-border bg-secondary p-4">
-          <div className="flex items-center gap-3">
-            <span className="grid size-9 shrink-0 place-items-center rounded-full border border-primary bg-[#24223b] text-sm font-semibold text-[#c7caff]" aria-hidden="true">
-              {username.charAt(0).toUpperCase()}
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{username}</p>
-              <p className="text-xs text-muted-foreground capitalize">{displayRole}</p>
-            </div>
-          </div>
-          <Button type="button" variant="ghost" className="mt-3 w-full" onClick={onLogout}>
-            Sign out
-          </Button>
-        </div>
-        <nav aria-label="Workspace navigation" className="grid gap-6">
+        <nav aria-label="Workspace navigation" className="workspace-nav">
           {groups.map((group) => (
-            <div key={group.label}>
-              <p className="mb-2 px-3 text-[11px] font-semibold tracking-[0.1em] text-muted-foreground uppercase">{group.label}</p>
-              <div className="grid gap-0.5">
+            <div key={group.label} className="nav-group">
+              <p className="nav-group-label">{group.label}</p>
+              <div className="nav-items">
                 {group.items.map((item) => {
                   const Icon = icons[item.key] ?? LayoutDashboard;
                   const active = currentKey === item.key;
                   return (
-                    <button
-                      key={item.key}
-                      type="button"
-                      aria-current={active ? "page" : undefined}
-                      onClick={() => onNavigate(item.key)}
-                      className={
-                        active
-                          ? "flex min-h-11 items-center gap-3 rounded-lg border border-[#4c4a82] bg-[#23223d] px-3 py-2.5 text-sm text-[#c7caff]"
-                          : "flex min-h-11 items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
-                      }
-                    >
-                      <Icon className="size-5" aria-hidden="true" />
+                    <button key={item.key} type="button" aria-current={active ? "page" : undefined} onClick={() => onNavigate(item.key)} className={active ? "nav-link nav-link-active" : "nav-link"}>
+                      <Icon className="size-[18px] shrink-0" aria-hidden="true" />
                       <span>{item.label}</span>
-                      {active ? <span className="ml-auto size-1.5 rounded-full bg-[#a5adff]" aria-hidden="true" /> : null}
                     </button>
                   );
                 })}
@@ -88,15 +78,43 @@ export function AppShell({ username, role, currentKey, groups, onNavigate, onLog
             </div>
           ))}
         </nav>
+        <p className="sidebar-note">A little care.<br /><span className="font-medium text-foreground">a better tomorrow.</span></p>
       </aside>
       <div className="min-w-0">
-        <header className="flex min-h-20 items-center justify-end border-b border-border px-8">
-          <p className="text-sm text-muted-foreground">
-            {new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" }).format(new Date())}
-          </p>
+        <header className="workspace-topbar">
+          <p className="workspace-breadcrumb"><span>Workspace</span><span aria-hidden="true">/</span><strong>{currentLabel}</strong></p>
+          <div className="workspace-identity">
+            <span className="workspace-avatar" aria-hidden="true">{username.charAt(0).toUpperCase()}</span>
+            <div className="workspace-user sr-only sm:not-sr-only">
+              <p className="truncate text-xs font-medium">{username}</p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground capitalize">{displayRole}</p>
+            </div>
+            <Button type="button" variant="ghost" className="px-2 text-xs" disabled={loggingOut} onClick={() => setConfirming(true)}>
+              {loggingOut ? "Signing out..." : "Sign out"}
+            </Button>
+          </div>
         </header>
-        <main className="mx-auto w-full max-w-[1600px] p-8">{children}</main>
+        <main id="workspace-content" tabIndex={-1} className="workspace-main">{children}</main>
       </div>
+      {confirming ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="logout-title">
+          <div className="w-full max-w-[480px] rounded-xl border border-border bg-card p-8">
+            <p className="text-xs font-semibold tracking-[0.13em] text-muted-foreground uppercase">Sign out</p>
+            <h2 id="logout-title" className="mt-3 text-xl font-semibold">Sign out of Barroga?</h2>
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+              Your session will end. You will need to sign in again to continue.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Button type="button" variant="secondary" className="flex-1" autoFocus disabled={loggingOut} onClick={() => setConfirming(false)}>
+                Cancel
+              </Button>
+              <Button type="button" className="flex-1" disabled={loggingOut} onClick={() => void signOut()}>
+                {loggingOut ? "Signing out..." : "Sign out"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

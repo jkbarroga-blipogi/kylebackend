@@ -21,14 +21,14 @@ function Badge({ value }: { value: unknown }) {
   const status = String(value ?? "Not set");
   const key = status.trim().toLowerCase();
   const color = ["available", "adopted", "completed", "approved"].includes(key)
-    ? "text-[#75dcb4] border-[#285846] bg-[#162a24]"
+    ? "status-positive"
     : ["pending", "review", "quarantine"].includes(key)
-      ? "text-[#f4cf83] border-[#655333] bg-[#2c261b]"
+      ? "status-warning"
       : ["rejected", "cancelled", "canceled", "deceased"].includes(key)
-        ? "text-[#ff9eae] border-[#76404e] bg-[#321e27]"
+        ? "status-negative"
         : key === "admin"
-          ? "text-[#c5c3ff] border-[#565080] bg-[#292640]"
-          : "text-foreground border-[#424d61] bg-secondary";
+          ? "status-neutral"
+          : "status-neutral";
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs leading-relaxed ${color}`}>
       <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
@@ -62,9 +62,9 @@ export function ResourceTable({ resource, rows, references = {}, role, onOpen, o
   }
 
   return (
-    <Card>
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border p-5">
-        <div className="grid min-w-0 flex-1 gap-2 md:max-w-[340px]">
+    <Card className="overflow-hidden">
+      <div className="grid gap-3 border-b border-border p-5 sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
+        <div className="grid w-full min-w-0 gap-2 sm:flex-1 md:max-w-[340px]">
           <Label htmlFor="search" className="sr-only">Search records</Label>
           <Input id="search" type="search" placeholder="Search records..." value={query} onChange={(event) => setQuery(event.target.value)} />
         </div>
@@ -86,17 +86,17 @@ export function ResourceTable({ resource, rows, references = {}, role, onOpen, o
           ) : null}
         </div>
       ) : (
-        <div className="overflow-x-auto" role="region" aria-label={`${resource.label} table, scroll horizontally for more columns`} tabIndex={0}>
+        <div className="relative overflow-x-auto" role="region" aria-label={`${resource.label} table, scroll horizontally for more columns`} tabIndex={0}>
           <table className="w-full min-w-[650px] border-collapse text-left text-sm">
             <caption className="sr-only">{resource.label}: {filtered.length} records</caption>
             <thead>
               <tr>
                 {resource.columns.map((name) => (
-                  <th key={name} scope="col" className="border-b border-border bg-[#151a24] px-5 py-3.5 font-medium text-muted-foreground">
+                  <th key={name} scope="col" className="border-b border-border bg-secondary/60 px-5 py-3.5 font-medium text-muted-foreground">
                     {labelFor(name)}
                   </th>
                 ))}
-                <th scope="col" className="border-b border-border bg-[#151a24] px-5 py-3.5">
+                <th scope="col" className="border-b border-border bg-secondary/60 px-5 py-3.5">
                   <span className="sr-only">Actions</span>
                 </th>
               </tr>
@@ -106,7 +106,7 @@ export function ResourceTable({ resource, rows, references = {}, role, onOpen, o
                 const id = row[resource.idKey] as number;
                 const identity = `${recordName(resource, row)} ${id}`;
                 return (
-                  <tr key={id} className="hover:bg-[#171c26]">
+                  <tr key={id} className="hover:bg-secondary/50">
                     {resource.columns.map((name, index) => {
                       const value = displayValue(name, row);
                       return (

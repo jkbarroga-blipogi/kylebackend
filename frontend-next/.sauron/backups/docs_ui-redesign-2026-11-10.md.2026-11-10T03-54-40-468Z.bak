@@ -1,0 +1,38 @@
+# UI diagnostic audit: 2026-11-10
+
+## Target
+
+Barroga frontend-next. Web application using Next.js 16.4.5, React 19, and Tailwind 4.
+The user requests a minimal, clean UI and confirms the original dark colors and purple accents.
+
+## Applied changes
+
+- Preserve the original theme colors, logo color, authentication behavior, and staged page copy.
+- Simplify the login form and improve spacing and typography.
+- Add a compact responsive navigation layout, desktop sidebar, and account header.
+- Keep mobile account identity available to screen readers and add a skip link.
+- Show total, available, and adopted counts derived from the existing animal response.
+- Restyle tables, controls, and status labels consistently.
+- Give record search full width on mobile.
+- Contain absolute screen-reader table headings inside the table scroll region.
+- Preserve the existing sign-out confirmation and all original event handlers.
+
+## Verification
+
+- Production build passes.
+- TypeScript noEmit check passes.
+- Existing Vitest suite: 14 tests pass across 3 files.
+- Browser checks use isolated mocked API responses, with no real accounts or record writes.
+- Login, dashboard, animal table, and adopter portal fit widths 320, 375, 425, 768, 1024, 1440.
+- Registration, sign-out dialog, and animal editor fit at 320 pixels.
+- Check empty login validation, registration toggle, password visibility, navigation, record search,
+  sign-out cancellation, derived counts, and mobile account accessibility.
+- No browser page errors occur in the smoke pass.
+- Lint retains 11 existing errors and 2 existing warnings. Baseline comparison finds no new diagnostics.
+- Screenshots remain in .sauron/ui-review/. Backups and checksums use ConflictManager.
+
+## Local preview
+
+http://127.0.0.1:3100
+
+No dependency, backend, authentication, or deployment changes are part of this UI work.

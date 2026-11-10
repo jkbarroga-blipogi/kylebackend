@@ -1,0 +1,132 @@
+{
+  "installedAt": "2026-11-10T03:30:18.061Z",
+  "version": "1.0.0",
+  "managedFiles": [
+    {
+      "path": "app/globals.css",
+      "runtime": "ui-redesign",
+      "backupPath": ".sauron\\backups\\app_globals.css.2026-11-10T04-38-32-378Z.bak",
+      "checksum": "sha256:60a9c605a77dc24ddf77fe220e1886043206d7b66a011f442448d2510afe2c68",
+      "lastUpdated": "2026-11-10T04:38:32.385Z"
+    },
+    {
+      "path": "app/layout.tsx",
+      "runtime": "ui-redesign",
+      "backupPath": ".sauron\\backups\\app_layout.tsx.2026-11-10T03-34-59-501Z.bak",
+      "checksum": "sha256:30dad692493a971b302cb9154e42c0ef064091f36d6c1db307b8024be7e902eb",
+      "lastUpdated": "2026-11-10T03:34:59.505Z"
+    },
+    {
+      "path": "public/mark.svg",
+      "runtime": "ui-redesign",
+      "backupPath": ".sauron\\backups\\public_mark.svg.2026-11-10T03-37-48-705Z.bak",
+      "checksum": "sha256:e1ba1852658a9db86bf9a100a6215803d720768190703cdd9cd1b5399ae68228",
+      "lastUpdated": "2026-11-10T03:37:48.708Z"
+    },
+    {
+      "path": "app/page.tsx",
+      "runtime": "ui-redesign",
+      "backupPath": ".sauron\\backups\\app_page.tsx.2026-11-10T04-17-54-174Z.bak",
+      "checksum": "sha256:d43e2bada852b8e6966405867c5be466cd62c1e892d600fdab9b325981578794",
+      "lastUpdated": "2026-11-10T04:17:54.180Z"
+    },
+    {
+      "path": "components/login-form.tsx",
+      "runtime": "ui-redesign",
+      "backupPath": ".sauron\\backups\\components_login-form.tsx.2026-11-10T04-17-31-428Z.bak",
+      "checksum": "sha256:30fcf1355790be77dc3071ff9cdc6bd8c49b89e6b7345ed521da2a418cb68a3d",
+      "lastUpdated": "2026-11-10T04:17:31.432Z"
+    },
+    {
+      "path": "components/ui/button.tsx",
+      "runtime": "ui-redesign",
+      "backupPath": ".sauron\\backups\\components_ui_button.tsx.2026-11-10T03-30-18-100Z.bak",
+      "checksum": "sha256:c670b9bc1f6551fec1aff26df60162b23603b35f3aeff86974d2543a9a3bd61e",
+      "lastUpdated": "2026-11-10T03:30:18.103Z"
+    },
+    {
+      "path": "components/ui/input.tsx",
+      "runtime": "ui-redesign",
+      "backupPath": ".sauron\\backups\\components_ui_input.tsx.2026-11-10T03-30-18-107Z.bak",
+      "checksum": "sha256:f539a1f203f9d0c7954a991e2bccad927798c2e50434274bed41937de623eb9d",
+      "lastUpdated": "2026-11-10T03:30:18.110Z"
+    },
+    {
+      "path": "components/ui/alert.tsx",
+      "runtime": "ui-redesign",
+      "backupPath": ".sauron\\backups\\components_ui_alert.tsx.2026-11-10T03-37-48-709Z.bak",
+      "checksum": "sha256:fd3bc7e9d71dd1892612c7ba67e33ffdf75bd9a91290bf91e4a139f5489b9051",
+      "lastUpdated": "2026-11-10T03:37:48.711Z"
+    },
+    {
+      "path": "components/resource-table.tsx",
+      "runtime": "ui-redesign",
+      "backupPath": ".sauron\\backups\\components_resource-table.tsx.2026-11-10T03-38-20-075Z.bak",
+      "checksum": "sha256:ab8280e2b7348c060e1199571f1f561db93b8b582047048213849f69640f4813",
+      "lastUpdated": "2026-11-10T03:38:20.081Z"
+    },
+    {
+      "path": "components/adopter-portal.tsx",
+      "runtime": "ui-redesign",
+      "backupPath": ".sauron\\backups\\components_adopter-portal.tsx.2026-11-10T03-38-20-093Z.bak",
+      "checksum": "sha256:abaa240c3237f115c36d4ea98cde7b58be531407bb11440c68fc2070d4a8a954",
+      "lastUpdated": "2026-11-10T03:38:20.096Z"
+    },
+    {
+      "path": "components/animal-page.tsx",
+      "runtime": "ui-redesign",
+      "backupPath": ".sauron\\backups\\components_animal-page.tsx.2026-11-10T03-38-20-083Z.bak",
+      "checksum": "sha256:4e700cd414b0e921090681e2044988f760ad19f9a7d8b41c671597d6b2b51a61",
+      "lastUpdated": "2026-11-10T03:38:20.086Z"
+    },
+    {
+      "path": "components/resource-page.tsx",
+      "runtime": "ui-redesign",
+      "backupPath": ".sauron\\backups\\components_resource-page.tsx.2026-11-10T03-30-18-139Z.bak",
+      "checksum": "sha256:648afedea3630f48cf82d9c04fd9b4ac3b516448e8ed2bcc0c0637bc4ac6aabd",
+      "lastUpdated": "2026-11-10T03:30:18.141Z"
+    },
+    {
+      "path": "components/app-shell.tsx",
+      "runtime": "ui-redesign",
+      "backupPath": ".sauron\\backups\\components_app-shell.tsx.2026-11-10T03-40-46-665Z.bak",
+      "checksum": "sha256:f0a72e130ee238a3bc000caefbf10bcb2f458a383ea3ab488108a8b610a0e689",
+      "lastUpdated": "2026-11-10T03:40:46.668Z"
+    },
+    {
+      "path": "components/dashboard-content.tsx",
+      "runtime": "ui-redesign",
+      "backupPath": ".sauron\\backups\\components_dashboard-content.tsx.2026-11-10T03-38-20-088Z.bak",
+      "checksum": "sha256:8d9d3cadd4b4fe8241d70ceca7ea6b6fcf868dfdd1ab97f7648f4ccfc497b9a8",
+      "lastUpdated": "2026-11-10T03:38:20.091Z"
+    },
+    {
+      "path": "docs/ui-redesign-2026-11-10.md",
+      "runtime": "ui-redesign",
+      "backupPath": ".sauron\\backups\\docs_ui-redesign-2026-11-10.md.2026-11-10T04-39-49-748Z.bak",
+      "checksum": "sha256:ef692fed64a574293f1268bb7c8aad37947810e7a0d821462d979e2dc2d7aefa",
+      "lastUpdated": "2026-11-10T04:39:49.751Z"
+    },
+    {
+      "path": "components/auth-welcome.tsx",
+      "runtime": "ui-redesign",
+      "backupPath": ".sauron\\backups\\components_auth-welcome.tsx.2026-11-10T04-35-16-033Z.bak",
+      "checksum": "sha256:d0fe0be0b1f32fbee6486eceb4c7bdcf8becc5b1def35705b08fb4b07f3a737e",
+      "lastUpdated": "2026-11-10T04:35:16.039Z"
+    },
+    {
+      "path": "components/login-form-heading.tsx",
+      "runtime": "ui-redesign",
+      "backupPath": null,
+      "checksum": "sha256:278fc06d21bef0c9ef24005f0852b72de9114ef72d1e97283835d97ce6bdd45b",
+      "lastUpdated": "2026-11-10T04:17:31.424Z"
+    },
+    {
+      "path": "components/login-skeleton.tsx",
+      "runtime": "ui-redesign",
+      "backupPath": null,
+      "checksum": "sha256:6aefb3cc64849ce5fc571eb4c5cdd5b65e11b0431fa7516179f60876a22ccb06",
+      "lastUpdated": "2026-11-10T04:17:31.434Z"
+    }
+  ]
+}

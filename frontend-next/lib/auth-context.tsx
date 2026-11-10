@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { createClient, type ApiClient, type Session } from "./api";
+import { clearSession, loadSession, saveSession } from "./session-storage";
 
 type AuthContextValue = {
   session: Session | null;
@@ -20,17 +21,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const clientRef = useRef<ApiClient | null>(null);
   if (!clientRef.current) {
     clientRef.current = createClient({
-      onExpired: () => setSession(null),
+      onExpired: () => {
+        clearSession();
+        setSession(null);
+      },
     });
   }
   const client = clientRef.current;
 
   useEffect(() => {
     let cancelled = false;
+    const cached = loadSession();
+    if (cached) {
+      setSession(cached);
+      setChecked(true);
+      client
+        .refresh()
+        .then((restored) => {
+          if (cancelled) return;
+          saveSession(restored);
+          setSession(restored);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          clearSession();
+          setSession(null);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
     client
       .refresh()
       .then((restored) => {
-        if (!cancelled) setSession(restored);
+        if (cancelled) return;
+        saveSession(restored);
+        setSession(restored);
       })
       .catch(() => {
         if (!cancelled) setSession(null);
@@ -46,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function login(identifier: string, password: string): Promise<Session> {
     const next = await client.login(identifier, password);
+    saveSession(next);
     setSession(next);
     return next;
   }
@@ -55,9 +82,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function logout(): Promise<void> {
+    clearSession();
     try {
       await client.logout();
     } finally {
+      clearSession();
       setSession(null);
     }
   }

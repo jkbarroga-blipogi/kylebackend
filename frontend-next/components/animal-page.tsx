@@ -26,7 +26,7 @@ export function AnimalPage() {
               onClick={() => setTab(key)}
               className={
                 active
-                  ? "min-h-11 border-b-2 border-primary px-4 text-sm font-semibold text-[#c7caff]"
+                  ? "min-h-11 border-b-2 border-primary px-4 text-sm font-semibold text-[#a5adff]"
                   : "min-h-11 border-b-2 border-transparent px-4 text-sm text-muted-foreground hover:text-foreground"
               }
             >

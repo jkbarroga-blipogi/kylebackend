@@ -3,8 +3,8 @@ import { AuthProvider } from "@/lib/auth-context";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Barroga | Shelter workspace",
-  description: "Barroga shelter workspace. A clear view of animal care, applications, and adoptions.",
+  title: "Animal | Shelter management",
+  description: "Animal shelter management. A clear view of animal care, applications, and adoptions.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

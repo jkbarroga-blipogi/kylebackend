@@ -132,7 +132,7 @@ export function ResourcePage({ resourceKey }: { resourceKey: string }) {
       </div>
       {pageMessage ? <Alert>{pageMessage}</Alert> : null}
       {followup ? (
-        <Card className="border-[#55517b]">
+        <Card className="border-border">
           <CardContent className="flex flex-wrap items-center justify-between gap-6 pt-6">
             <div>
               <h2 className="text-lg font-semibold">Adoption saved. One step to finish.</h2>
