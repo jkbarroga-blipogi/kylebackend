@@ -1,6 +1,7 @@
 node_modules
 frontend
-frontend-next
+frontend-next/.next
+frontend-next/.vercel
 test
 docs
 .git
