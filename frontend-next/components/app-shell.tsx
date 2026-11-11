@@ -110,7 +110,7 @@ export function AppShell({ username, role, currentKey, groups, onNavigate, onLog
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="logout-title">
           <div className="w-full max-w-[480px] rounded-xl border border-border bg-card p-8">
             <p className="text-xs font-semibold tracking-[0.13em] text-muted-foreground uppercase">Sign out</p>
-            <h2 id="logout-title" className="mt-3 text-xl font-semibold">Sign out of Barroga?</h2>
+            <h2 id="logout-title" className="mt-3 text-xl font-semibold">Sign out of shelter?</h2>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
               Your session will end. You will need to sign in again to continue.
             </p>
