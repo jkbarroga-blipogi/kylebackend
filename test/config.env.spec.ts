@@ -48,6 +48,22 @@ describe("JWT secrets", () => {
     expect(accessTokenSecret(baseEnv)).toBe(SECRET_A);
     expect(refreshTokenSecret(baseEnv)).toBe(SECRET_B);
   });
+
+  it("derives distinct 64-character secrets on managed hosts when only DB credentials are set", () => {
+    const renderEnv = {
+      RENDER: "true",
+      DB_HOST: "db.internal",
+      DB_USER: "app",
+      DB_PASSWORD: "pw-value",
+      DB_NAME: "barroga",
+    };
+    const access = accessTokenSecret(renderEnv);
+    const refresh = refreshTokenSecret(renderEnv);
+    expect(access).toHaveLength(64);
+    expect(refresh).toHaveLength(64);
+    expect(access).not.toBe(refresh);
+    expect(accessTokenSecret(renderEnv)).toBe(access);
+  });
 });
 
 describe("token lifetimes", () => {

@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 type EnvSource = Record<string, string | undefined>;
 
 const TTL_MULTIPLIERS: Record<string, number> = {
@@ -8,6 +10,20 @@ const TTL_MULTIPLIERS: Record<string, number> = {
   w: 604800,
 };
 
+const MANAGED_HOST_VARS = ['RENDER', 'VERCEL'] as const;
+
+function isManagedHost(env: EnvSource): boolean {
+  return MANAGED_HOST_VARS.some(name => (env[name] ?? '').trim().length > 0);
+}
+
+/** Deterministic 64-character secret derived from the database credentials. */
+function derivedSecret(env: EnvSource, name: string): string {
+  const seed = [name, env.DB_HOST, env.DB_USER, env.DB_PASSWORD, env.DB_NAME]
+    .map(part => (part ?? '').trim())
+    .join(':');
+  return createHash('sha256').update(seed).digest('hex');
+}
+
 function requiredSecret(env: EnvSource, name: string): string {
   const value = env[name]?.trim();
   if (!value) {
@@ -16,12 +32,28 @@ function requiredSecret(env: EnvSource, name: string): string {
   return value;
 }
 
+/**
+ * JWT secrets must be provided explicitly. On managed hosts (Render, Vercel)
+ * where only database credentials are configured, secrets are derived
+ * deterministically from those credentials instead of failing startup.
+ */
+function jwtSecret(env: EnvSource, name: string): string {
+  const provided = env[name]?.trim();
+  if (provided) {
+    return provided;
+  }
+  if (isManagedHost(env) && (env.DB_PASSWORD ?? '').trim()) {
+    return derivedSecret(env, name);
+  }
+  throw new Error(`${name} must be set`);
+}
+
 export function accessTokenSecret(env: EnvSource = process.env): string {
-  return requiredSecret(env, 'JWT_ACCESS_TOKEN_SECRET');
+  return jwtSecret(env, 'JWT_ACCESS_TOKEN_SECRET');
 }
 
 export function refreshTokenSecret(env: EnvSource = process.env): string {
-  return requiredSecret(env, 'JWT_REFRESH_TOKEN_SECRET');
+  return jwtSecret(env, 'JWT_REFRESH_TOKEN_SECRET');
 }
 
 export function parseTtlSeconds(raw: string): number {
