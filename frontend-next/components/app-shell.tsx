@@ -82,14 +82,24 @@ export function AppShell({ username, role, currentKey, groups, onNavigate, onLog
       </aside>
       <div className="min-w-0">
         <header className="workspace-topbar">
-          <p className="workspace-breadcrumb"><span>Workspace</span><span aria-hidden="true">/</span><strong>{currentLabel}</strong></p>
+          <p className="workspace-breadcrumb">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="size-2 rounded-full bg-[#6366f1]" aria-hidden="true" />
+              Workspace
+            </span>
+            <span aria-hidden="true">/</span>
+            <strong>{currentLabel}</strong>
+          </p>
           <div className="workspace-identity">
+            <span className="hidden rounded-full border border-[#4c4a82]/60 bg-[#23223d]/80 px-2.5 py-1 text-[11px] font-medium capitalize text-[#c7caff] sm:inline-flex">
+              {displayRole}
+            </span>
             <span className="workspace-avatar" aria-hidden="true">{username.charAt(0).toUpperCase()}</span>
             <div className="workspace-user sr-only sm:not-sr-only">
-              <p className="truncate text-xs font-medium">{username}</p>
+              <p className="truncate text-xs font-semibold text-foreground">{username}</p>
               <p className="mt-0.5 text-[10px] text-muted-foreground capitalize">{displayRole}</p>
             </div>
-            <Button type="button" variant="ghost" className="px-2 text-xs" disabled={loggingOut} onClick={() => setConfirming(true)}>
+            <Button type="button" variant="secondary" size="sm" className="px-3 text-xs" disabled={loggingOut} onClick={() => setConfirming(true)}>
               {loggingOut ? "Signing out..." : "Sign out"}
             </Button>
           </div>

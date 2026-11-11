@@ -27,6 +27,7 @@ export function ResourcePage({ resourceKey }: { resourceKey: string }) {
   const [followup, setFollowup] = useState<{ applicationId: number; adoptionId: number } | null>(null);
   const [followupBusy, setFollowupBusy] = useState(false);
   const [followupMessage, setFollowupMessage] = useState("");
+  const [roleBusyId, setRoleBusyId] = useState<number | null>(null);
 
   const [references, setReferences] = useState<Record<string, Row[]>>({});
 
@@ -91,6 +92,27 @@ export function ResourcePage({ resourceKey }: { resourceKey: string }) {
       }
     } finally {
       setDeleting(false);
+    }
+  }
+
+  async function changeUserRole(targetRow: Row, nextRole: string) {
+    if (!resource || resource.key !== "users" || roleBusyId !== null) return;
+    const id = targetRow[resource.idKey] as number;
+    setRoleBusyId(id);
+    setPageMessage("");
+    try {
+      await request(`users/${id}`, {
+        method: "PUT",
+        body: { role: nextRole },
+      });
+      setPageMessage(`Updated role for ${String(targetRow.username ?? `user ${id}`)} to ${nextRole}.`);
+      await load();
+    } catch (error) {
+      if (!(error instanceof ApiError && error.status === 401)) {
+        setPageMessage(error instanceof Error ? error.message : "Role update failed. Try again.");
+      }
+    } finally {
+      setRoleBusyId(null);
     }
   }
 
@@ -178,8 +200,10 @@ export function ResourcePage({ resourceKey }: { resourceKey: string }) {
               rows={rows}
               references={references}
               role={session?.role ?? ""}
-              onOpen={(openedResource, row, mode) => setEditor({ row, mode })}
+              onOpen={(_openedResource, row, mode) => setEditor({ row, mode })}
               onDelete={(_openedResource, row) => { setDeleteError(""); setDeleteTarget(row); }}
+              onRoleChange={resource.key === "users" ? changeUserRole : undefined}
+              roleBusyId={roleBusyId}
             />
           )}
         </div>

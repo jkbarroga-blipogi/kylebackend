@@ -21,7 +21,11 @@ import { accessTokenSecret, accessTokenTtlSeconds } from '../config/env';
       }),
     }),
   ],
-  providers: [AuthService, JwtStrategy, LoginThrottle],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    { provide: LoginThrottle, useFactory: () => new LoginThrottle() },
+  ],
   controllers: [AuthController],
 })
 export class AuthModule {}

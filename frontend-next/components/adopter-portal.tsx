@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiError } from "@/lib/api";
+import { animalPhotoUrl } from "@/lib/animal-photos";
 import { useAuth } from "@/lib/auth-context";
 import { dateValue, normalized, type Row } from "@/lib/records";
 
@@ -222,15 +223,13 @@ function AvailableAnimals({ onNavigate }: { onNavigate: (key: string) => void })
               return (
                 <Card key={animal.animal_id as number}>
                   <CardContent className="flex flex-col pt-6">
-                    {typeof animal.image_url === "string" && animal.image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={animal.image_url} alt={String(animal.animal_name)} className="mb-4 aspect-[4/3] w-full rounded-lg border border-border object-cover" />
-                    ) : (
-                      <div className="mb-6 flex items-center justify-between gap-4">
-                        <span className="grid size-14 place-items-center rounded-xl border border-border bg-secondary text-[#a5adff]">P</span>
+                    <div className="relative mb-4 aspect-[4/3] w-full overflow-hidden rounded-lg border border-border bg-secondary">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={animalPhotoUrl(animal)} alt={String(animal.animal_name)} className="h-full w-full object-cover" />
+                      <div className="absolute top-3 right-3">
                         <Badge value="Available" />
                       </div>
-                    )}
+                    </div>
                     <p className="text-xs font-semibold tracking-[0.13em] text-muted-foreground uppercase">
                       {String(animal.species_name)} / {String(animal.animal_id)}
                     </p>
@@ -424,15 +423,13 @@ function AllAnimals({ onNavigate }: { onNavigate: (key: string) => void }) {
               return (
                 <Card key={animal.animal_id as number}>
                   <CardContent className="flex flex-col pt-6">
-                    {typeof animal.image_url === "string" && animal.image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={animal.image_url} alt={String(animal.animal_name)} className="mb-4 aspect-[4/3] w-full rounded-lg border border-border object-cover" />
-                    ) : (
-                      <div className="mb-6 flex items-center justify-between gap-4">
-                        <span className="grid size-14 place-items-center rounded-xl border border-border bg-secondary text-[#a5adff]">P</span>
+                    <div className="relative mb-4 aspect-[4/3] w-full overflow-hidden rounded-lg border border-border bg-secondary">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={animalPhotoUrl(animal)} alt={String(animal.animal_name)} className="h-full w-full object-cover" />
+                      <div className="absolute top-3 right-3">
                         <Badge value={String(animal.adoption_status)} />
                       </div>
-                    )}
+                    </div>
                     <p className="text-xs font-semibold tracking-[0.13em] text-muted-foreground uppercase">
                       {String(animal.species_name)} / {String(animal.animal_id)}
                     </p>

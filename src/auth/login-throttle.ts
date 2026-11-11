@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Optional } from '@nestjs/common';
 
 export type ThrottleOptions = {
   maxFailures?: number;
@@ -20,7 +20,10 @@ export class LoginThrottle {
   private readonly maxEntries: number;
   private readonly now: () => number;
 
-  constructor(options: ThrottleOptions = {}, now: () => number = Date.now) {
+  constructor(
+    @Optional() options: ThrottleOptions = {},
+    @Optional() now: () => number = Date.now,
+  ) {
     this.maxFailures = options.maxFailures ?? DEFAULT_MAX_FAILURES;
     this.windowMs = options.windowMs ?? DEFAULT_WINDOW_MS;
     this.maxEntries = options.maxEntries ?? DEFAULT_MAX_ENTRIES;
