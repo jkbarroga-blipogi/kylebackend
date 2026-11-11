@@ -90,7 +90,7 @@ export function createClient({
   fetchImpl?: typeof fetch;
   onExpired?: (owner: Session) => void;
 } = {}) {
-  let apiBase = validatedBase(base);
+  const apiBase = validatedBase(base);
   let session: Session | null = null;
 
   async function request(path: string, { method = "GET", body, auth = true }: RequestOptions = {}): Promise<unknown> {
@@ -112,7 +112,7 @@ export function createClient({
         credentials: "omit",
       });
       text = await response.text();
-    } catch (cause) {
+    } catch {
       const write = method !== "GET";
       throw new ApiError(
         write
@@ -134,7 +134,7 @@ export function createClient({
     let data: unknown;
     try {
       data = text ? JSON.parse(text) : null;
-    } catch (cause) {
+    } catch {
       throw new ApiError(
         "Unexpected server response. Reload the records before trying again.",
         response.status,

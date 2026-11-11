@@ -1,8 +1,8 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { createClient, type ApiClient, type Session } from "./api";
-import { clearSession, loadSession, saveSession } from "./session-storage";
+import { clearSession, saveSession } from "./session-storage";
 
 type AuthContextValue = {
   session: Session | null;
@@ -18,39 +18,17 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [checked, setChecked] = useState(false);
-  const clientRef = useRef<ApiClient | null>(null);
-  if (!clientRef.current) {
-    clientRef.current = createClient({
+  const [client] = useState<ApiClient>(() =>
+    createClient({
       onExpired: () => {
         clearSession();
         setSession(null);
       },
-    });
-  }
-  const client = clientRef.current;
+    }),
+  );
 
   useEffect(() => {
     let cancelled = false;
-    const cached = loadSession();
-    if (cached) {
-      setSession(cached);
-      setChecked(true);
-      client
-        .refresh()
-        .then((restored) => {
-          if (cancelled) return;
-          saveSession(restored);
-          setSession(restored);
-        })
-        .catch(() => {
-          if (cancelled) return;
-          clearSession();
-          setSession(null);
-        });
-      return () => {
-        cancelled = true;
-      };
-    }
     client
       .refresh()
       .then((restored) => {
@@ -59,7 +37,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(restored);
       })
       .catch(() => {
-        if (!cancelled) setSession(null);
+        if (cancelled) return;
+        clearSession();
+        setSession(null);
       })
       .finally(() => {
         if (!cancelled) setChecked(true);
@@ -67,8 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [client]);
 
   async function login(identifier: string, password: string): Promise<Session> {
     const next = await client.login(identifier, password);
@@ -91,9 +70,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function request(path: string, options?: { method?: string; body?: unknown }): Promise<unknown> {
-    return client.request(path, options);
-  }
+  const request = useCallback<AuthContextValue["request"]>(
+    (path, options) => client.request(path, options),
+    [client],
+  );
 
   return (
     <AuthContext.Provider value={{ session, checked, login, register, logout, request }}>

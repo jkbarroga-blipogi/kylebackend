@@ -31,45 +31,41 @@ export function ResourcePage({ resourceKey }: { resourceKey: string }) {
 
   const [references, setReferences] = useState<Record<string, Row[]>>({});
 
-  const load = useCallback(async (): Promise<boolean> => {
-    if (!resource || !session) return false;
-    setLoadError("");
-    try {
-      const loaded = readRows(resource, await request(resource.path));
-      setRows(loaded);
-      const refKeys = new Set(
-        resource.fields.map((field) => field.ref).filter((value): value is string => Boolean(value)),
-      );
-      if (refKeys.size > 0) {
-        const entries = await Promise.allSettled(
-          [...refKeys].map(async (key) => {
-            const refResource = getResource(key);
-            if (!refResource) throw new Error(`Missing reference ${key}`);
-            return [key, readRows(refResource, await request(refResource.path))] as const;
-          }),
+  const load = useCallback((): Promise<boolean> => {
+    if (!resource || !session) return Promise.resolve(false);
+    return request(resource.path)
+      .then(async (data) => {
+        setLoadError("");
+        setRows(readRows(resource, data));
+        const refKeys = new Set(
+          resource.fields.map((field) => field.ref).filter((value): value is string => Boolean(value)),
         );
-        setReferences(
-          Object.fromEntries(
-            entries.filter((entry) => entry.status === "fulfilled").map((entry) => (entry as PromiseFulfilledResult<readonly [string, Row[]]>).value),
-          ),
-        );
-      }
-      return true;
-    } catch (error) {
-      setRows(null);
-      setLoadError(error instanceof Error ? error.message : "Records could not load. Retry to continue.");
-      return false;
-    }
+        if (refKeys.size > 0) {
+          const entries = await Promise.allSettled(
+            [...refKeys].map(async (key) => {
+              const refResource = getResource(key);
+              if (!refResource) throw new Error(`Missing reference ${key}`);
+              return [key, readRows(refResource, await request(refResource.path))] as const;
+            }),
+          );
+          setReferences(
+            Object.fromEntries(
+              entries.filter((entry) => entry.status === "fulfilled").map((entry) => (entry as PromiseFulfilledResult<readonly [string, Row[]]>).value),
+            ),
+          );
+        }
+        return true;
+      })
+      .catch((error: unknown) => {
+        setRows(null);
+        setLoadError(error instanceof Error ? error.message : "Records could not load. Retry to continue.");
+        return false;
+      });
   }, [resource, session, request]);
 
   useEffect(() => {
-    setRows(null);
-    setEditor(null);
-    setDeleteTarget(null);
-    setFollowup(null);
-    setPageMessage("");
     void load();
-  }, [resourceKey, load]);
+  }, [load]);
 
   if (!resource) return null;
   const writable = session ? canWrite(session.role, resource.key) : false;
@@ -210,6 +206,7 @@ export function ResourcePage({ resourceKey }: { resourceKey: string }) {
         {editor ? (
           <div className="min-w-0 xl:sticky xl:top-6">
             <ResourceEditor
+              key={`${resource.key}:${editor.mode}:${editor.row?.[resource.idKey] ?? "new"}`}
               resource={resource}
               row={editor.row}
               mode={editor.mode}

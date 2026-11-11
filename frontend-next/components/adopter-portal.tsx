@@ -80,22 +80,23 @@ function AvailableAnimals({ onNavigate }: { onNavigate: (key: string) => void })
   const [uncertain, setUncertain] = useState(false);
   const [message, setMessage] = useState("");
 
-  async function load() {
-    setError("");
-    try {
-      const [animalData, applicationData, profileData] = await Promise.all([
-        request("adopter/animals"),
-        request("adopter/applications"),
-        request("adopter/profile"),
-      ]);
-      if (!Array.isArray(animalData) || !Array.isArray(applicationData)) throw new Error("Unexpected adopter response. Reload to try again.");
-      setAnimals(animalData as Row[]);
-      setApplications(applicationData as Row[]);
-      setProfile(profileData && typeof profileData === "object" ? (profileData as Row) : null);
-      setLoaded(true);
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Available animals could not load. Reload to try again.");
-    }
+  function load() {
+    return Promise.all([
+      request("adopter/animals"),
+      request("adopter/applications"),
+      request("adopter/profile"),
+    ])
+      .then(([animalData, applicationData, profileData]) => {
+        if (!Array.isArray(animalData) || !Array.isArray(applicationData)) throw new Error("Unexpected adopter response. Reload to try again.");
+        setError("");
+        setAnimals(animalData as Row[]);
+        setApplications(applicationData as Row[]);
+        setProfile(profileData && typeof profileData === "object" ? (profileData as Row) : null);
+        setLoaded(true);
+      })
+      .catch((loadError: unknown) => {
+        setError(loadError instanceof Error ? loadError.message : "Available animals could not load. Reload to try again.");
+      });
   }
 
   useEffect(() => {
@@ -283,22 +284,23 @@ function AllAnimals({ onNavigate }: { onNavigate: (key: string) => void }) {
   const [uncertain, setUncertain] = useState(false);
   const [message, setMessage] = useState("");
 
-  async function load() {
-    setError("");
-    try {
-      const [animalData, applicationData, profileData] = await Promise.all([
-        request("adopter/all-animals"),
-        request("adopter/applications"),
-        request("adopter/profile"),
-      ]);
-      if (!Array.isArray(animalData) || !Array.isArray(applicationData)) throw new Error("Unexpected adopter response. Reload to try again.");
-      setAnimals(animalData as Row[]);
-      setApplications(applicationData as Row[]);
-      setProfile(profileData && typeof profileData === "object" ? (profileData as Row) : null);
-      setLoaded(true);
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Animals could not load. Reload to try again.");
-    }
+  function load() {
+    return Promise.all([
+      request("adopter/all-animals"),
+      request("adopter/applications"),
+      request("adopter/profile"),
+    ])
+      .then(([animalData, applicationData, profileData]) => {
+        if (!Array.isArray(animalData) || !Array.isArray(applicationData)) throw new Error("Unexpected adopter response. Reload to try again.");
+        setError("");
+        setAnimals(animalData as Row[]);
+        setApplications(applicationData as Row[]);
+        setProfile(profileData && typeof profileData === "object" ? (profileData as Row) : null);
+        setLoaded(true);
+      })
+      .catch((loadError: unknown) => {
+        setError(loadError instanceof Error ? loadError.message : "Animals could not load. Reload to try again.");
+      });
   }
 
   useEffect(() => {
@@ -668,16 +670,17 @@ function MyApplications() {
   const [applications, setApplications] = useState<Row[] | null>(null);
   const [error, setError] = useState("");
 
-  async function load() {
-    setError("");
-    try {
-      const data = await request("adopter/applications");
-      if (!Array.isArray(data)) throw new Error("Unexpected applications response. Reload to try again.");
-      setApplications(data as Row[]);
-    } catch (loadError) {
-      setApplications(null);
-      setError(loadError instanceof Error ? loadError.message : "Applications could not load. Reload to try again.");
-    }
+  function load() {
+    return request("adopter/applications")
+      .then((data) => {
+        if (!Array.isArray(data)) throw new Error("Unexpected applications response. Reload to try again.");
+        setError("");
+        setApplications(data as Row[]);
+      })
+      .catch((loadError: unknown) => {
+        setApplications(null);
+        setError(loadError instanceof Error ? loadError.message : "Applications could not load. Reload to try again.");
+      });
   }
 
   useEffect(() => {

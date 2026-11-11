@@ -49,10 +49,22 @@ function referenceLabel(resource: Resource, row: Row): string {
 export function ResourceEditor({ resource, row, mode, onClose, onSaved, onDelete, onReload }: EditorProps) {
   const { request } = useAuth();
   const titleRef = useRef<HTMLHeadingElement>(null);
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [values, setValues] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    for (const field of resource.fields) {
+      if (field.type === "password") initial[field.name] = "";
+      else if (field.type === "date") initial[field.name] = dateValue(row?.[field.name] as string | null | undefined);
+      else initial[field.name] = row ? String(row[field.name] ?? "") : field.defaultValue ?? "";
+    }
+    return initial;
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [references, setReferences] = useState<Record<string, Row[]>>({});
-  const [refMessage, setRefMessage] = useState("");
+  const [refMessage, setRefMessage] = useState(() =>
+    resource.fields.some((field) => field.ref) || ["adoption", "adoption-application"].includes(resource.key)
+      ? "Loading relationship choices..."
+      : "",
+  );
   const [formMessage, setFormMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [uncertain, setUncertain] = useState(false);
@@ -61,17 +73,6 @@ export function ResourceEditor({ resource, row, mode, onClose, onSaved, onDelete
   const [photoError, setPhotoError] = useState("");
 
   useEffect(() => {
-    const initial: Record<string, string> = {};
-    for (const field of resource.fields) {
-      if (field.type === "password") initial[field.name] = "";
-      else if (field.type === "date") initial[field.name] = dateValue(row?.[field.name] as string | null | undefined);
-      else initial[field.name] = row ? String(row[field.name] ?? "") : field.defaultValue ?? "";
-    }
-    setValues(initial);
-    setErrors({});
-    setFormMessage("");
-    setUncertain(false);
-    setDirty(false);
     titleRef.current?.focus();
   }, [resource, row]);
 
@@ -84,7 +85,6 @@ export function ResourceEditor({ resource, row, mode, onClose, onSaved, onDelete
     }
     if (refKeys.size === 0) return;
     let cancelled = false;
-    setRefMessage("Loading relationship choices...");
     Promise.all(
       [...refKeys].map(async (key) => {
         const refResource = getResource(key);
