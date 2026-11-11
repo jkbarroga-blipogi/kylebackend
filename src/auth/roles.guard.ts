@@ -2,7 +2,8 @@ import { CanActivate, ExecutionContext, ForbiddenException, Inject, Injectable, 
 import { Reflector } from '@nestjs/core';
 import { z } from 'zod';
 
-type Role = 'admin' | 'staff' | 'volunteer' | 'user';
+export const VALID_ROLES = ['admin', 'staff', 'volunteer', 'user'] as const;
+export type Role = (typeof VALID_ROLES)[number];
 const ROLES = 'barroga.roles';
 export const Roles = (...roles: Role[]) => SetMetadata(ROLES, roles);
 export const actorSchema = z.object({ userId: z.number().int().positive(), username: z.string().min(1), role: z.string().min(1) });

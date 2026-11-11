@@ -1,8 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { DatabaseService } from '../database/database.service';
 import { translateSqlError } from '../database/sql-errors';
 import { passwordSchema } from '../auth/auth.validation';
+import { VALID_ROLES, type Role } from '../auth/roles.guard';
 import * as bcrypt from 'bcryptjs';
 
 type Actor = { id: number; role: string };
@@ -11,6 +12,7 @@ type UserMutationFields = {
   username?: string;
   password?: string;
   email?: string | null;
+  role?: Role | string;
 };
 
 @Injectable()
@@ -97,7 +99,7 @@ export class UsersService {
     }
 
     const body = (partial ?? {}) as Record<string, unknown>;
-    const allowedKeys = ['username', 'password', 'email'];
+    const allowedKeys = ['username', 'password', 'email', 'role'];
     const unknownKey = Object.keys(body).find(key => !allowedKeys.includes(key));
     if (unknownKey !== undefined) {
       throw new BadRequestException(`Unknown field: ${unknownKey}`);
@@ -107,6 +109,21 @@ export class UsersService {
     const values: (string | number | null)[] = [];
 
     for (const [key, value] of Object.entries(body)) {
+      if (key === 'role') {
+        if (actor.role !== 'admin') {
+          throw new ForbiddenException('Only administrators can change user roles');
+        }
+        const normalizedRole = typeof value === 'string' ? value.trim().toLowerCase() : '';
+        if (!VALID_ROLES.includes(normalizedRole as Role)) {
+          throw new BadRequestException(
+            `role must be one of: ${VALID_ROLES.join(', ')}`,
+          );
+        }
+        fields.push('role = ?');
+        values.push(normalizedRole);
+        continue;
+      }
+
       if (key === 'username') {
         if (typeof value !== 'string' || !value.trim() || value.trim().length > 255) {
           throw new BadRequestException('username must contain 1 to 255 characters');

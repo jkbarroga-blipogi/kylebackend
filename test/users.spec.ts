@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { NotFoundException, BadRequestException, ConflictException } from "@nestjs/common";
+import { NotFoundException, BadRequestException, ConflictException, ForbiddenException } from "@nestjs/common";
 
 import { UsersService } from "../src/users/users.service";
 import { cannedDb, normSql, type CapturedQuery } from "./helpers/fake-db";
@@ -18,12 +18,46 @@ function captureOf(canned: ReturnType<typeof cannedDb>): CapturedQuery[] {
 }
 
 describe("users boundary (V6)", () => {
-  it("rejects role changes from the HTTP surface", async () => {
-    const { users } = setup([]);
-    const payload = { username: "x", role: "admin" };
+  it("forbids non-admin accounts from changing roles", async () => {
+    const { users, pool } = setup([]);
     await expect(
-      users.updateUser(1, payload, { id: 1, role: "user" }),
-    ).rejects.toThrow(new BadRequestException("Unknown field: role"));
+      users.updateUser(1, { username: "x", role: "admin" }, { id: 1, role: "user" }),
+    ).rejects.toThrow(new ForbiddenException("Only administrators can change user roles"));
+    await expect(
+      users.updateUser(2, { role: "staff" }, { id: 2, role: "staff" }),
+    ).rejects.toThrow(new ForbiddenException("Only administrators can change user roles"));
+    expect((pool.execute as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBe(0);
+  });
+
+  it("allows an admin to change a user role (for example user to staff or staff to user)", async () => {
+    const canned = setup([
+      { kind: "header", insertId: 0, affectedRows: 1 },
+      { kind: "rows", rows: [{ id: 4, username: "ana", email: null, role: "staff", created_at: "now" }] },
+      { kind: "header", insertId: 0, affectedRows: 1 },
+      { kind: "rows", rows: [{ id: 4, username: "ana", email: null, role: "user", created_at: "now" }] },
+    ]);
+
+    const promoted = await canned.users.updateUser(4, { role: "staff" }, { id: 1, role: "admin" });
+    expect(promoted).toEqual({ id: 4, username: "ana", email: null, role: "staff", created_at: "now" });
+
+    const demoted = await canned.users.updateUser(4, { role: "user" }, { id: 1, role: "admin" });
+    expect(demoted).toEqual({ id: 4, username: "ana", email: null, role: "user", created_at: "now" });
+
+    const captured = captureOf(canned);
+    expect(captured[0].sql).toBe("UPDATE users SET role = ? WHERE id = ?");
+    expect(captured[0].params).toEqual(["staff", 4]);
+    expect(captured[2].sql).toBe("UPDATE users SET role = ? WHERE id = ?");
+    expect(captured[2].params).toEqual(["user", 4]);
+  });
+
+  it("rejects invalid role values even from an admin", async () => {
+    const { users, pool } = setup([]);
+    await expect(
+      users.updateUser(4, { role: "superuser" as never }, { id: 1, role: "admin" }),
+    ).rejects.toThrow(
+      new BadRequestException("role must be one of: admin, staff, volunteer, user"),
+    );
+    expect((pool.execute as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBe(0);
   });
 
   it("rejects unknown fields by name", async () => {

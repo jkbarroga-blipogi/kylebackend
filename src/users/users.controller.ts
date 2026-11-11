@@ -33,18 +33,33 @@ export class UsersController {
     return this.usersService.findById(id);
   }
 
-  // Update user (protected: self or admin only)
+  // Update user (protected: self or admin only; role changes restricted to admin)
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin', 'staff', 'volunteer', 'user')
   @Put(':id')
   async update(
     @Param('id', ParseIntPipe) id: number,
-    @Body() body: { username?: string; password?: string; email?: string | null },
+    @Body() body: { username?: string; password?: string; email?: string | null; role?: string },
     @Request() req: AuthenticatedRequest,
   ) {
     return this.usersService.updateUser(
       id,
       body,
+      { id: req.user.userId, role: req.user.role },
+    );
+  }
+
+  // Dedicated admin endpoint to assign a user's role (for example: user -> staff)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Put(':id/role')
+  async updateRole(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { role?: string },
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.usersService.updateUser(
+      id,
+      { role: body?.role },
       { id: req.user.userId, role: req.user.role },
     );
   }

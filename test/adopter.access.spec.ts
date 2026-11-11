@@ -23,6 +23,7 @@ const roles = ['admin', 'staff', 'volunteer', 'user', 'unknown'];
 const users = {
   findById: vi.fn(async (id: number) => id > 0 && id <= roles.length ? { id, username: `account-${id}`, role: roles[id - 1] } : undefined),
   getAll: vi.fn(async () => []), createUser: vi.fn(async (username: string) => ({ id: 6, username, role: 'user' })),
+  updateUser: vi.fn(async (id: number, body: { role?: string }) => ({ id, username: `account-${id}`, role: body.role || 'user' })),
 };
 const animals = { findAll: vi.fn(async () => []), findAllSpecies: vi.fn(async () => []), findAllBreeds: vi.fn(async () => []) };
 const shelter = { findAll: vi.fn(async () => []), create: vi.fn(async () => ({ staff_id: 8 })) };
@@ -123,5 +124,14 @@ describe('HTTP role boundaries for adopter access', () => {
     expect(response.status).toBe(201);
     expect(await response.json()).toMatchObject({ username: 'Ana', role: 'user' });
     expect(users.createUser).toHaveBeenCalledWith('Ana', 'test-password', undefined);
+  });
+
+  it('allows admins to update user roles via PUT /users/:id/role and denies non-admins', async () => {
+    expect((await request('/users/4/role', 4, 'PUT', { role: 'staff' })).status).toBe(403);
+    expect((await request('/users/4/role', 2, 'PUT', { role: 'staff' })).status).toBe(403);
+    const response = await request('/users/4/role', 1, 'PUT', { role: 'staff' });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ id: 4, role: 'staff' });
+    expect(users.updateUser).toHaveBeenCalledWith(4, { role: 'staff' }, { id: 1, role: 'admin' });
   });
 });
