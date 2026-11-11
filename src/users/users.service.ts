@@ -94,7 +94,8 @@ export class UsersService {
     partial: UserMutationFields,
     actor: Actor,
   ) {
-    if (actor.role !== 'admin' && actor.id !== id) {
+    const canManageOthers = actor.role === 'admin' || actor.role === 'master';
+    if (!canManageOthers && actor.id !== id) {
       throw new NotFoundException('User not found');
     }
 
@@ -110,7 +111,7 @@ export class UsersService {
 
     for (const [key, value] of Object.entries(body)) {
       if (key === 'role') {
-        if (actor.role !== 'admin') {
+        if (!canManageOthers) {
           throw new ForbiddenException('Only administrators can change user roles');
         }
         const normalizedRole = typeof value === 'string' ? value.trim().toLowerCase() : '';

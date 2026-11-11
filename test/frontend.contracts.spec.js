@@ -79,6 +79,7 @@ describe("frontend resource boundaries", () => {
     expect(canWrite("staff", "staff")).toBe(false);
     expect(canWrite("volunteer", "animal")).toBe(false);
     expect(canWrite("admin", "users")).toBe(true);
+    expect(canWrite("master", "users")).toBe(true);
   });
 
   it("creates users through registration without a role and allows role updates on edit", () => {

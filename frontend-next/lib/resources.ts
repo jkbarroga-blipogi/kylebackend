@@ -180,16 +180,16 @@ export const resources: Resource[] = [
     path: "users",
     createPath: "auth/register",
     idKey: "id",
-    description: "Manage accounts and assign user, volunteer, staff, or admin roles.",
+    description: "Manage accounts and assign user, volunteer, staff, admin, or master roles.",
     columns: ["username", "email", "role", "created_at"],
     fields: [
       field("username", "Username", "text", required),
       field("email", "Email", "email", { clear: null, maxLength: 255, hint: "Optional. The user can sign in with username or email." }),
       field("role", "Role", "select", {
         editOnly: true,
-        options: ["user", "staff", "volunteer", "admin"],
+        options: ["user", "staff", "volunteer", "admin", "master"],
         defaultValue: "user",
-        hint: "Choose the account role (for example: user, staff, volunteer, or admin).",
+        hint: "Choose the account role (for example: user, staff, volunteer, admin, or master).",
       }),
       field("password", "New password", "password", {
         createRequired: true,
@@ -201,15 +201,17 @@ export const resources: Resource[] = [
 ];
 
 export const getResource = (key: string): Resource | undefined => resources.find((item) => item.key === key);
-export const provisioned = (role: string): boolean => ["admin", "staff", "volunteer", "user"].includes(role);
+export const provisioned = (role: string): boolean => ["admin", "master", "staff", "volunteer", "user"].includes(role);
 
 export function canAccess(role: string, key: string): boolean {
   if (!getResource(key)) return false;
-  return role === "admin" || (role === "staff" && key !== "users") || (role === "volunteer" && key === "animal");
+  const privileged = role === "admin" || role === "master";
+  return privileged || (role === "staff" && key !== "users") || (role === "volunteer" && key === "animal");
 }
 
 export function canWrite(role: string, key: string): boolean {
-  return canAccess(role, key) && (role === "admin" || (role === "staff" && key !== "staff"));
+  const privileged = role === "admin" || role === "master";
+  return canAccess(role, key) && (privileged || (role === "staff" && key !== "staff"));
 }
 
 export const animalTabs = ["animal", "species", "breed"] as const;

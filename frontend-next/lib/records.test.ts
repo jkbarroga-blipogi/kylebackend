@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildPayload, fieldValue, readRows, recordName } from "./records";
-import { getResource } from "./resources";
+import { canAccess, canWrite, getResource, provisioned } from "./resources";
 
 const resource = (key: string) => {
   const found = getResource(key);
@@ -35,6 +35,9 @@ describe("Next.js record contracts", () => {
       body: { username: "Alex", email: "alex@example.com", role: "staff" },
       errors: {},
     });
+    expect(provisioned("master")).toBe(true);
+    expect(canAccess("master", "users")).toBe(true);
+    expect(canWrite("master", "users")).toBe(true);
   });
 
   it("shows record numbers without a hashtag sign", () => {

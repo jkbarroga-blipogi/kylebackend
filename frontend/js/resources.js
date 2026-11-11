@@ -56,22 +56,24 @@ export const resources = [
   },
   {
     key: "users", label: "Users", singular: "user", icon: "shield", group: "Administration", path: "users", createPath: "auth/register", idKey: "id",
-    description: "Manage accounts and assign user, volunteer, staff, or admin roles.", columns: ["username", "email", "role", "created_at"],
+    description: "Manage accounts and assign user, volunteer, staff, admin, or master roles.", columns: ["username", "email", "role", "created_at"],
     fields: [
       field("username", "Username", "text", required),
       field("email", "Email", "email", { clear: null, maxLength: 255, hint: "Optional. The user can sign in with username or email." }),
-      field("role", "Role", "select", { editOnly: true, options: ["user", "staff", "volunteer", "admin"], defaultValue: "user", hint: "Choose the account role (for example: user, staff, volunteer, or admin)." }),
+      field("role", "Role", "select", { editOnly: true, options: ["user", "staff", "volunteer", "admin", "master"], defaultValue: "user", hint: "Choose the account role (for example: user, staff, volunteer, admin, or master)." }),
       field("password", "New password", "password", { createRequired: true, minLength: 8, hint: "Use at least 8 characters. On edit, leave blank to keep the current password. Spaces are preserved." }),
     ],
   },
 ];
 
 export const getResource = (key) => resources.find((item) => item.key === key);
-export const provisioned = (role) => ["admin", "staff", "volunteer", "user"].includes(role);
+export const provisioned = (role) => ["admin", "master", "staff", "volunteer", "user"].includes(role);
 export function canAccess(role, key) {
   if (!getResource(key)) return false;
-  return role === "admin" || (role === "staff" && key !== "users") || (role === "volunteer" && key === "animal");
+  const privileged = role === "admin" || role === "master";
+  return privileged || (role === "staff" && key !== "users") || (role === "volunteer" && key === "animal");
 }
 export function canWrite(role, key) {
-  return canAccess(role, key) && (role === "admin" || (role === "staff" && key !== "staff"));
+  const privileged = role === "admin" || role === "master";
+  return canAccess(role, key) && (privileged || (role === "staff" && key !== "staff"));
 }

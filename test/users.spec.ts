@@ -29,7 +29,7 @@ describe("users boundary (V6)", () => {
     expect((pool.execute as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBe(0);
   });
 
-  it("allows an admin to change a user role (for example user to staff or staff to user)", async () => {
+  it("allows an admin or master account to change a user role (for example user to staff or staff to user)", async () => {
     const canned = setup([
       { kind: "header", insertId: 0, affectedRows: 1 },
       { kind: "rows", rows: [{ id: 4, username: "ana", email: null, role: "staff", created_at: "now" }] },
@@ -40,7 +40,7 @@ describe("users boundary (V6)", () => {
     const promoted = await canned.users.updateUser(4, { role: "staff" }, { id: 1, role: "admin" });
     expect(promoted).toEqual({ id: 4, username: "ana", email: null, role: "staff", created_at: "now" });
 
-    const demoted = await canned.users.updateUser(4, { role: "user" }, { id: 1, role: "admin" });
+    const demoted = await canned.users.updateUser(4, { role: "user" }, { id: 1, role: "master" });
     expect(demoted).toEqual({ id: 4, username: "ana", email: null, role: "user", created_at: "now" });
 
     const captured = captureOf(canned);
@@ -55,7 +55,7 @@ describe("users boundary (V6)", () => {
     await expect(
       users.updateUser(4, { role: "superuser" as never }, { id: 1, role: "admin" }),
     ).rejects.toThrow(
-      new BadRequestException("role must be one of: admin, staff, volunteer, user"),
+      new BadRequestException("role must be one of: admin, master, staff, volunteer, user"),
     );
     expect((pool.execute as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBe(0);
   });
