@@ -4,7 +4,7 @@ import { loadReferences, populateReferences } from "./references.js";
 import { $, escapeHtml as esc, icon, message, announce, badge } from "./ui.js";
 
 export function fieldMarkup(field, row) {
-  const required = field.required || (field.createRequired && !row);
+  const required = field.required || (field.createRequired && !row) || Boolean(field.editOnly && row);
   const value = field.type === "password" ? "" : field.type === "date" ? dateValue(row?.[field.name]) : row?.[field.name] ?? (!row ? field.defaultValue : "") ?? "";
   const attrs = `id="f-${field.name}" name="${field.name}" ${required ? "required" : ""} aria-describedby="hint-${field.name} error-${field.name}" ${field.maxLength ? `maxlength="${field.maxLength}"` : ""} ${field.minLength ? `minlength="${field.minLength}"` : ""}`;
   let control;
@@ -39,7 +39,7 @@ export function createEditor(client, { onSaved, onReload, onDelete }) {
     $("btn-close-editor").onclick = () => { if (canLeave()) close(); };
   }
   function showErrors(errors) {
-    for (const field of context.resource.fields) {
+    for (const field of context.resource.fields.filter((entry) => !entry.editOnly || Boolean(context.row))) {
       const error = errors[field.name];
       const input = $("f-" + field.name);
       input.setAttribute("aria-invalid", error ? "true" : "false");
@@ -91,7 +91,8 @@ export function createEditor(client, { onSaved, onReload, onDelete }) {
     const active = context;
     if (!active || active.busy || active.uncertain || $("btn-save").disabled) return;
     const { resource, row } = active;
-    const values = Object.fromEntries(resource.fields.map((field) => [field.name, $("f-" + field.name).value]));
+    const activeFields = resource.fields.filter((field) => !field.editOnly || Boolean(row));
+    const values = Object.fromEntries(activeFields.map((field) => [field.name, $("f-" + field.name).value]));
     const { body, errors } = buildPayload(resource, values, row);
     for (const field of resource.fields.filter((entry) => entry.ref)) {
       if ($("f-" + field.name).selectedOptions[0]?.dataset.missing) errors[field.name] = `${field.label} is unavailable. Choose an existing record.`;
@@ -164,9 +165,9 @@ export function createEditor(client, { onSaved, onReload, onDelete }) {
     }
     panel.innerHTML = heading(row ? `Edit ${resource.singular}` : `Add ${resource.singular}`, row ? `Record ${row[resource.idKey]}` : "New record")
       + `<form id="record-form" novalidate><div id="form-message" class="message form-summary" tabindex="-1" role="alert" hidden></div><div id="reference-message" class="message" role="status" hidden></div>`
-      + (resource.key === "users" ? `<p class="field-hint form-summary">Role: ${esc(row?.role || "user (adopter)")}. Role changes require administrator provisioning outside this interface.</p>` : "")
+      + (resource.key === "users" && !row ? `<p class="field-hint form-summary">New accounts start with the user (adopter) role. Edit a user record to change their role.</p>` : "")
       + (resource.key === "adoption" ? '<p class="field-hint form-summary">Choose a nonfinal application. Its animal and adopter are filled in for you. Save the adoption before marking the application adopted.</p>' : "")
-      + `<fieldset id="form-fields" class="form-fields"><legend class="sr-only">${esc(resource.label)} fields</legend>${resource.fields.map((field) => fieldMarkup(field, row)).join("")}</fieldset><div class="form-actions"><button id="btn-cancel" class="btn secondary" type="button">Cancel</button><button id="btn-save" class="btn primary" type="submit">Save changes</button></div></form>`;
+      + `<fieldset id="form-fields" class="form-fields"><legend class="sr-only">${esc(resource.label)} fields</legend>${resource.fields.filter((field) => !field.editOnly || Boolean(row)).map((field) => fieldMarkup(field, row)).join("")}</fieldset><div class="form-actions"><button id="btn-cancel" class="btn secondary" type="button">Cancel</button><button id="btn-save" class="btn primary" type="submit">Save changes</button></div></form>`;
     wireClose();
     $("btn-cancel").onclick = () => { if (canLeave()) close(); };
     $("record-form").oninput = () => { context.dirty = true; };

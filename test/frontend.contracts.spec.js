@@ -81,12 +81,15 @@ describe("frontend resource boundaries", () => {
     expect(canWrite("admin", "users")).toBe(true);
   });
 
-  it("creates users through registration and never submits a role", () => {
+  it("creates users through registration without a role and allows role updates on edit", () => {
     expect(resource("users").createPath).toBe("auth/register");
     const result = buildPayload(resource("users"), { username: "Alex", password: " keep spaces ", role: "admin" });
     expect(result).toEqual({ body: { username: "Alex", password: " keep spaces " }, errors: {} });
     expect(buildPayload(resource("users"), { username: "Alex", password: "" }).errors.password).toBeTruthy();
     expect(buildPayload(resource("users"), { username: "Alex", password: "" }, { id: 1, username: "Alex" }).body).not.toHaveProperty("password");
+    expect(
+      buildPayload(resource("users"), { username: "Alex", role: "staff", password: "" }, { id: 1, username: "Alex", role: "user" }),
+    ).toEqual({ body: { username: "Alex", email: null, role: "staff" }, errors: {} });
   });
 
   it("distinguishes nullable clears, omitted fields, and a birth date that cannot clear", () => {

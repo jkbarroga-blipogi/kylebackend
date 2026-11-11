@@ -246,9 +246,9 @@ export function ResourceEditor({ resource, row, mode, onClose, onSaved, onDelete
             Choose a nonfinal application. Its animal and adopter are filled in for you. Save the adoption before marking the application adopted.
           </p>
         ) : null}
-        {resource.key === "users" ? (
+        {resource.key === "users" && !row ? (
           <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
-            Role: {row ? String(row.role ?? "user") : "user (adopter)"}. Role changes require administrator provisioning outside this interface.
+            New accounts start with the user (adopter) role. Edit a user record to change their role.
           </p>
         ) : null}
         {refMessage ? (
@@ -284,8 +284,8 @@ export function ResourceEditor({ resource, row, mode, onClose, onSaved, onDelete
         <form method="post" onSubmit={(event) => void onSubmit(event)} noValidate>
           <fieldset disabled={busy} className="grid gap-5">
             <legend className="sr-only">{resource.label} fields</legend>
-            {resource.fields.map((field) => {
-              const isRequired = field.required || (field.createRequired && !row);
+            {resource.fields.filter((field) => !field.editOnly || Boolean(row)).map((field) => {
+              const isRequired = field.required || (field.createRequired && !row) || Boolean(field.editOnly && row);
               const inputId = `f-${field.name}`;
               const value = values[field.name] ?? "";
               const error = errors[field.name];

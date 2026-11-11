@@ -12,6 +12,7 @@ export function buildPayload(resource, values, original = null) {
   const body = {};
   const errors = {};
   for (const field of resource.fields) {
+    if (field.editOnly && !original) continue;
     const value = String(values[field.name] ?? "");
     const raw = field.type === "password" ? value : value.trim();
     const required = field.required || (field.createRequired && !original);

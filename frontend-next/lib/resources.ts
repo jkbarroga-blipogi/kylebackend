@@ -6,6 +6,7 @@ export type Field = {
   type: FieldType;
   required?: boolean;
   createRequired?: boolean;
+  editOnly?: boolean;
   ref?: string;
   options?: string[];
   maxLength?: number;
@@ -179,11 +180,17 @@ export const resources: Resource[] = [
     path: "users",
     createPath: "auth/register",
     idKey: "id",
-    description: "Manage accounts. Roles are provisioned by an administrator outside this interface.",
+    description: "Manage accounts and assign user, volunteer, staff, or admin roles.",
     columns: ["username", "email", "role", "created_at"],
     fields: [
       field("username", "Username", "text", required),
       field("email", "Email", "email", { clear: null, maxLength: 255, hint: "Optional. The user can sign in with username or email." }),
+      field("role", "Role", "select", {
+        editOnly: true,
+        options: ["user", "staff", "volunteer", "admin"],
+        defaultValue: "user",
+        hint: "Choose the account role (for example: user, staff, volunteer, or admin).",
+      }),
       field("password", "New password", "password", {
         createRequired: true,
         minLength: 8,

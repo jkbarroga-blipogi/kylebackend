@@ -21,10 +21,20 @@ describe("Next.js record contracts", () => {
     });
   });
 
-  it("never submits a role and excludes categories from resources", () => {
+  it("never submits a role on registration, but submits role when editing an existing user", () => {
     expect(resource("users").createPath).toBe("auth/register");
-    const result = buildPayload(resource("users"), { username: "Alex", password: " keep spaces ", role: "admin" });
-    expect(result).toEqual({ body: { username: "Alex", password: " keep spaces " }, errors: {} });
+    const created = buildPayload(resource("users"), { username: "Alex", password: " keep spaces ", role: "admin" });
+    expect(created).toEqual({ body: { username: "Alex", password: " keep spaces " }, errors: {} });
+
+    const edited = buildPayload(
+      resource("users"),
+      { username: "Alex", email: "alex@example.com", role: "staff", password: "" },
+      { id: 15, username: "Alex", email: "alex@example.com", role: "user" },
+    );
+    expect(edited).toEqual({
+      body: { username: "Alex", email: "alex@example.com", role: "staff" },
+      errors: {},
+    });
   });
 
   it("shows record numbers without a hashtag sign", () => {
