@@ -11,7 +11,7 @@ export async function openBrowser() {
   const root = process.platform === "win32" ? join(process.env.LOCALAPPDATA, "Temp", "opencode") : tmpdir();
   await mkdir(root, { recursive: true });
   const profile = await mkdtemp(join(root, "barroga-browser-"));
-  const child = spawn(browserPath, ["--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "about:blank"], { stdio: ["ignore", "ignore", "pipe"] });
+  const child = spawn(browserPath, ["--headless=new", "--no-first-run", "--no-default-browser-check", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "about:blank"], { stdio: ["ignore", "ignore", "pipe"] });
   const endpoint = await new Promise((resolve, reject) => {
     let startupLog = "";
     let started = false;
@@ -30,9 +30,14 @@ export async function openBrowser() {
   let sessionId;
   const pending = new Map();
   const errors = [];
+  const pausedFrames = [];
+  const runtimeEvents = [];
   socket.addEventListener("message", ({ data }) => {
     const message = JSON.parse(data);
+    if (["Inspector.targetCrashed", "Inspector.detached", "Page.javascriptDialogOpening", "Target.detachedFromTarget", "Target.targetCrashed"].includes(message.method)) runtimeEvents.push({ method: message.method, ...message.params });
+    if (message.method === "Runtime.consoleAPICalled" && message.params.type === "error") runtimeEvents.push({ method: message.method, text: message.params.args.map((arg) => arg.value ?? arg.description ?? "").join(" ").slice(0, 600) });
     if (message.method === "Runtime.exceptionThrown") errors.push(message.params.exceptionDetails.exception?.description || message.params.exceptionDetails.text);
+    if (message.method === "Debugger.paused") pausedFrames.push(message.params.callFrames.map((frame) => ({ name: frame.functionName, url: frame.url, line: frame.location.lineNumber, column: frame.location.columnNumber })));
     const item = pending.get(message.id);
     if (!item) return;
     clearTimeout(item.timer);
@@ -59,7 +64,7 @@ export async function openBrowser() {
     return result.result.value;
   }
   return {
-    send, evaluate, errors,
+    send, evaluate, errors, pausedFrames, runtimeEvents,
     async wait(expression) {
       return evaluate(`new Promise((resolve, reject) => {
         const check = () => { if (${expression}) { observer.disconnect(); clearTimeout(timer); resolve(true); } };

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { ArrowUpRight, Heart, House, PawPrint, Sparkles } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -33,22 +34,23 @@ function statusBadgeClass(status: string): string {
   return "status-neutral";
 }
 
-export function DashboardContent() {
+export function DashboardContent({ onNavigate }: { onNavigate: (key: string) => void }) {
   const { session, request } = useAuth();
   const [rows, setRows] = useState<AnimalRow[] | null>(null);
   const [error, setError] = useState("");
 
-  async function load() {
+  function load() {
     if (!session) return;
-    setError("");
-    try {
-      const data = (await request("animal")) as AnimalRow[];
-      if (!Array.isArray(data)) throw new Error("Unexpected animal response. Reload to try again.");
-      setRows(data);
-    } catch (loadError) {
-      setRows(null);
-      setError(loadError instanceof Error ? loadError.message : "Animals could not load. Reload to try again.");
-    }
+    return request("animal")
+      .then((data) => {
+        if (!Array.isArray(data)) throw new Error("Unexpected animal response. Reload to try again.");
+        setError("");
+        setRows(data as AnimalRow[]);
+      })
+      .catch((loadError: unknown) => {
+        setRows(null);
+        setError(loadError instanceof Error ? loadError.message : "Animals could not load. Reload to try again.");
+      });
   }
 
   useEffect(() => {
@@ -87,19 +89,23 @@ export function DashboardContent() {
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <a
+            <Link
               href="?resource=animal"
+              prefetch={false}
+              onNavigate={(event) => { event.preventDefault(); onNavigate("animal"); }}
               className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#857cf1]/40 bg-[#4f46e5] px-4 text-xs font-semibold text-white shadow-md transition hover:bg-[#4338ca]"
             >
               Explore animals <ArrowUpRight className="size-4" aria-hidden="true" />
-            </a>
+            </Link>
             {(session?.role === "admin" || session?.role === "master") ? (
-              <a
+              <Link
                 href="?resource=users"
+                prefetch={false}
+                onNavigate={(event) => { event.preventDefault(); onNavigate("users"); }}
                 className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-secondary/80 px-4 text-xs font-medium text-foreground transition hover:bg-secondary"
               >
                 Manage users
-              </a>
+              </Link>
             ) : null}
           </div>
         </div>
@@ -143,12 +149,14 @@ export function DashboardContent() {
             <h2 className="text-lg font-semibold">Latest arrivals</h2>
             <p className="mt-1 text-sm text-muted-foreground">The newest companions in your shelter.</p>
           </div>
-          <a
+          <Link
             href="?resource=animal"
+            prefetch={false}
+            onNavigate={(event) => { event.preventDefault(); onNavigate("animal"); }}
             className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-secondary/60 px-3.5 text-xs font-medium text-[#c7caff] no-underline transition hover:bg-secondary"
           >
             View all animals <ArrowUpRight className="size-3.5" aria-hidden="true" />
-          </a>
+          </Link>
         </div>
         {rows === null && !error ? (
           <div className="grid gap-5 p-6 sm:grid-cols-2 lg:grid-cols-3" aria-hidden="true">
@@ -168,9 +176,11 @@ export function DashboardContent() {
             {arrivals.map((animal) => {
               const photo = animalPhotoUrl(animal);
               return (
-                <a
+                <Link
                   key={animal.animal_id}
                   href="?resource=animal"
+                  prefetch={false}
+                  onNavigate={(event) => { event.preventDefault(); onNavigate("animal"); }}
                   className="group flex flex-col overflow-hidden rounded-xl border border-border bg-secondary/35 no-underline transition hover:-translate-y-0.5 hover:border-[#6366f1]/50 hover:bg-secondary/60"
                 >
                   <div className="relative aspect-[16/10] w-full overflow-hidden bg-secondary">
@@ -204,7 +214,7 @@ export function DashboardContent() {
                       Arrived {dateValue(animal.arrival_date) || "date unavailable"}
                     </p>
                   </div>
-                </a>
+                </Link>
               );
             })}
           </div>
