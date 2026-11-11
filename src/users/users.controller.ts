@@ -12,11 +12,7 @@ import {
 
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { Roles, RolesGuard } from '../auth/roles.guard';
-
-type AuthenticatedRequest = {
-  user: { userId: number; username: string; role: string };
-};
+import { Roles, RolesGuard, type AuthenticatedRequest } from '../auth/roles.guard';
 
 @Controller('users')
 @Roles('admin')

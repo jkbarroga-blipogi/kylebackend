@@ -100,6 +100,18 @@ describe("ShelterService validation and dispatch", () => {
     );
     expect(getConnection.calls.length).toBe(0);
   });
+
+  it("allows clearing optional staff_id on adoption-application update", async () => {
+    const canned = cannedDb([
+      { kind: "rows", rows: [{ animal_id: 1, application_status: "Pending" }] },
+      { kind: "rows", rows: [{ animal_id: 1, adoption_status: "Available" }] },
+      { kind: "header", insertId: 0, affectedRows: 1 },
+      { kind: "rows", rows: [{ application_id: 4, animal_id: 1, adopter_id: 2, staff_id: null, application_date: "2026-01-15", application_status: "Pending" }] },
+    ]);
+    const service = new ShelterService(canned.db);
+    const row = await service.update("adoption-application", 4, { staff_id: null });
+    expect(row.staff_id).toBeNull();
+  });
 });
 
 describe("ShelterService generic CRUD", () => {

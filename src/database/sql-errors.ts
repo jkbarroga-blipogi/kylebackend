@@ -50,3 +50,11 @@ export function translateSqlError(error: unknown): unknown | null {
 
   return null;
 }
+
+export function rethrowSqlError(error: unknown): never {
+  const mapped = translateSqlError(error);
+  if (mapped !== null) {
+    throw mapped;
+  }
+  throw error;
+}

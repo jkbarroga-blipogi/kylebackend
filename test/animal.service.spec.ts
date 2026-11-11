@@ -82,8 +82,17 @@ describe("species contract", () => {
     expect(captured[1].params).toEqual([6]);
   });
 
-  it("rejects bad species names on update before any query", async () => {
+  it("rejects bad species names on create and update before any query", async () => {
     const { service, pool } = setup([]);
+    await expect(service.createSpecies({})).rejects.toThrow(
+      new BadRequestException("species_name must contain 1 to 50 characters"),
+    );
+    await expect(service.createSpecies({ species_name: "   " })).rejects.toThrow(
+      new BadRequestException("species_name must contain 1 to 50 characters"),
+    );
+    await expect(
+      service.createSpecies({ species_name: "Dog", extra: "x" }),
+    ).rejects.toThrow(new BadRequestException("Unknown field: extra"));
     await expect(service.updateSpecies(1, { species_name: "   " })).rejects.toThrow(
       new BadRequestException("species_name must contain 1 to 50 characters"),
     );
@@ -145,8 +154,17 @@ describe("species contract", () => {
 });
 
 describe("breed contract", () => {
-  it("rejects bad breed names and blank patches", async () => {
+  it("rejects bad breed inputs on create and update", async () => {
     const { service } = setup([]);
+    await expect(service.createBreed({ species_id: 0, breed_name: "Shiba" })).rejects.toThrow(
+      new BadRequestException("species_id must be a positive integer"),
+    );
+    await expect(service.createBreed({ species_id: 1, breed_name: "   " })).rejects.toThrow(
+      new BadRequestException("breed_name must contain 1 to 100 characters"),
+    );
+    await expect(
+      service.createBreed({ species_id: 1, breed_name: "Shiba", extra: 1 }),
+    ).rejects.toThrow(new BadRequestException("Unknown field: extra"));
     await expect(
       service.updateBreed(1, { breed_name: "x".repeat(101) }),
     ).rejects.toThrow(
@@ -364,8 +382,9 @@ describe("animal contract", () => {
     expect(captured[0].params).toEqual([2, "Bantay", "M", "2025-01-10"]);
   });
 
-  it("updates only allowlisted fields", async () => {
+  it("updates only allowlisted fields after confirming the animal exists", async () => {
     const canned = setup([
+      { kind: "rows", rows: [ANIMAL_ROW_7] },
       { kind: "header", insertId: 0, affectedRows: 1 },
       { kind: "rows", rows: [ANIMAL_ROW_7] },
     ]);
@@ -374,9 +393,17 @@ describe("animal contract", () => {
     expect(row.adoption_status).toBe("Available");
 
     const captured = captureOf(canned);
-    expect(captured.length).toBe(2);
-    expect(captured[0].sql).toBe("UPDATE `Animal` SET `color` = ? WHERE `animal_id` = ?");
-    expect(captured[0].params).toEqual(["white", 7]);
+    expect(captured.length).toBe(3);
+    expect(captured[1].sql).toBe("UPDATE `Animal` SET `color` = ? WHERE `animal_id` = ?");
+    expect(captured[1].params).toEqual(["white", 7]);
+  });
+
+  it("blocks direct adoption_status updates that bypass the adoption workflow", async () => {
+    const { service, pool } = setup([]);
+    await expect(service.update(7, { adoption_status: "Available" })).rejects.toThrow(
+      new BadRequestException("adoption_status is managed through adoptions and applications"),
+    );
+    expect((pool.execute as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBe(0);
   });
 
   it("deletes by id after a confirmed read", async () => {

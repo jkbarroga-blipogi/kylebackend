@@ -31,10 +31,9 @@ export const TABLES: Record<string, TableConfig> = {
     required: [
       'animal_id',
       'adopter_id',
-      'staff_id',
       'application_date',
     ],
-    optional: [],
+    optional: ['staff_id'],
     defaults: ['application_status'],
   },
 

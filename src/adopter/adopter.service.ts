@@ -3,11 +3,10 @@ import type { ResultSetHeader, RowDataPacket } from 'mysql2';
 import type { Pool, PoolConnection } from 'mysql2/promise';
 import { DatabaseService } from '../database/database.service';
 import { translateSqlError } from '../database/sql-errors';
-import { inTx } from '../shelter/tx';
-import { checkId } from '../shelter/validation';
+import { inTx } from '../database/tx';
+import { checkId, parseBody } from '../common/validation/request-validation';
 import { lockAnimalRow, assertAnimalNotAdopted, assertNoOtherAdoptedApplication } from '../shelter/transactions';
 import { applicationSchema, profileSchema } from './adopter.validation';
-import { parseBody } from '../request-validation';
 
 type QueryConnection = Pool | PoolConnection;
 interface ProfileRow extends RowDataPacket {

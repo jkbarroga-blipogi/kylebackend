@@ -1,14 +1,12 @@
 import { BadRequestException } from '@nestjs/common';
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import type { DatabaseService } from '../database/database.service';
-import { translateSqlError } from '../database/sql-errors';
+import { rethrowSqlError } from '../database/sql-errors';
+import { checkId } from '../common/validation/request-validation';
 import type { TableConfig } from './table.config';
 
-export function checkId(id: number) {
-  if (!Number.isSafeInteger(id) || id <= 0) {
-    throw new BadRequestException('ID must be a positive integer');
-  }
-}
+export { checkId };
+export const rethrowDbError = rethrowSqlError;
 
 /**
  * Field gate for every generic CRUD write: unknown keys, types, blanks,
@@ -90,18 +88,6 @@ export function fields(
   return { keys, values };
 }
 
-// One place translates MySQL errors during responses: normal CRUD and
-// the adoption transaction family reuse the shared sql-errors table.
-export function rethrowDbError(error: unknown): never {
-  const mapped = translateSqlError(error);
-
-  if (mapped !== null) {
-    throw mapped;
-  }
-
-  throw error;
-}
-
 export async function query<T extends RowDataPacket[] | ResultSetHeader>(
   db: DatabaseService,
   sql: string,
@@ -115,6 +101,6 @@ export async function query<T extends RowDataPacket[] | ResultSetHeader>(
 
     return result;
   } catch (error) {
-    rethrowDbError(error);
+    rethrowSqlError(error);
   }
 }

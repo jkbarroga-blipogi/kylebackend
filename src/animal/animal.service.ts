@@ -272,12 +272,31 @@ export class AnimalService {
 
   // POST
   async createSpecies(data: unknown) {
-    const value = (data as { species_name?: unknown })?.species_name;
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      throw new BadRequestException('Send a JSON object');
+    }
+
+    const body = data as Record<string, unknown>;
+    const unknownField = Object.keys(body).find((key) => key !== 'species_name');
+    if (unknownField !== undefined) {
+      throw new BadRequestException(`Unknown field: ${unknownField}`);
+    }
+
+    const name = body.species_name;
+    if (
+      typeof name !== 'string' ||
+      !name.trim() ||
+      name.trim().length > 50
+    ) {
+      throw new BadRequestException(
+        'species_name must contain 1 to 50 characters',
+      );
+    }
 
     return this.lookupWrite(async () => {
       const [result] = await this.pool().execute<ResultSetHeader>(
         'INSERT INTO `Species` (`species_name`) VALUES (?)',
-        [value as string],
+        [name.trim()],
       );
 
       return this.findOneSpecies(Number(result.insertId));
@@ -360,13 +379,38 @@ export class AnimalService {
 
   // POST
   async createBreed(data: unknown) {
-    const speciesId = (data as { species_id?: unknown })?.species_id;
-    const breedName = (data as { breed_name?: unknown })?.breed_name;
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      throw new BadRequestException('Send a JSON object');
+    }
+
+    const body = data as Record<string, unknown>;
+    const unknownField = Object.keys(body).find(
+      (key) => key !== 'species_id' && key !== 'breed_name',
+    );
+    if (unknownField !== undefined) {
+      throw new BadRequestException(`Unknown field: ${unknownField}`);
+    }
+
+    const speciesId = body.species_id;
+    if (typeof speciesId !== 'number' || !Number.isSafeInteger(speciesId) || speciesId <= 0) {
+      throw new BadRequestException('species_id must be a positive integer');
+    }
+
+    const breedName = body.breed_name;
+    if (
+      typeof breedName !== 'string' ||
+      !breedName.trim() ||
+      breedName.trim().length > 100
+    ) {
+      throw new BadRequestException(
+        'breed_name must contain 1 to 100 characters',
+      );
+    }
 
     return this.lookupWrite(async () => {
       const [result] = await this.pool().execute<ResultSetHeader>(
         'INSERT INTO `Breed` (`species_id`, `breed_name`) VALUES (?, ?)',
-        [speciesId as number, String(breedName ?? '')],
+        [speciesId, breedName.trim()],
       );
 
       return this.findOneBreed(Number(result.insertId));
@@ -528,6 +572,14 @@ export class AnimalService {
     if (!keys.length) {
       throw new BadRequestException('No valid fields to update');
     }
+
+    if (keys.includes('adoption_status')) {
+      throw new BadRequestException(
+        'adoption_status is managed through adoptions and applications',
+      );
+    }
+
+    await this.findOne(id);
 
     const body = data as AnimalRecord;
 

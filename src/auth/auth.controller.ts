@@ -4,21 +4,18 @@ import {
   Body,
   UseGuards,
   Request,
-  Get,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { parseLogin, parseRegistration, parseRefresh } from './auth.validation';
-
-type AuthenticatedRequest = { user: { userId: number; username: string; role: string } };
+import type { AuthenticatedRequest } from './roles.guard';
 
 @Controller('auth')
 export class AuthController {
-
   constructor(
-    private authService: AuthService,
-    private usersService: UsersService,
+    private readonly authService: AuthService,
+    private readonly usersService: UsersService,
   ) {}
 
   @Post('register')
@@ -30,16 +27,7 @@ export class AuthController {
   @Post('login')
   async login(@Body() input: unknown) {
     const body = parseLogin(input);
-    const user = await this.authService.validateUser(
-      body.username,
-      body.password,
-    );
-
-    if (!user) {
-      return { error: 'Invalid credentials' };
-    }
-
-    return this.authService.login(user);
+    return this.authService.authenticate(body.username, body.password);
   }
 
   // Logout clears only the caller's own refresh token. The identity

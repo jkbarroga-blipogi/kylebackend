@@ -121,6 +121,16 @@ describe("UsersService SQL contract", () => {
     expect(captured[0].params).toEqual(["ana@example.com", 1]);
   });
 
+  it("rejects weak passwords on update", async () => {
+    const { users } = setup([]);
+    await expect(
+      users.updateUser(1, { password: "short" }, { id: 1, role: "user" }),
+    ).rejects.toThrow(new BadRequestException("Password must use at least 8 characters"));
+    await expect(
+      users.updateUser(1, { password: "x".repeat(73) }, { id: 1, role: "user" }),
+    ).rejects.toThrow(new BadRequestException("Password must use at most 72 UTF-8 bytes"));
+  });
+
   it("applies only provided update fields after hashing", async () => {
     const canned = setup([
       { kind: "header", insertId: 0, affectedRows: 1 },
@@ -128,7 +138,7 @@ describe("UsersService SQL contract", () => {
     ]);
     await canned.users.updateUser(
       1,
-      { username: "ana2", password: "newpass" },
+      { username: "ana2", password: "new-password-1" },
       { id: 1, role: "user" },
     );
 
@@ -136,7 +146,7 @@ describe("UsersService SQL contract", () => {
     expect(captured.length).toBe(2);
     expect(captured[0].sql).toBe("UPDATE users SET username = ?, password = ? WHERE id = ?");
     expect(captured[0].params[0]).toBe("ana2");
-    expect(captured[0].params[1]).not.toBe("newpass");
+    expect(captured[0].params[1]).not.toBe("new-password-1");
     expect(captured[0].params[2]).toBe(1);
     expect(captured[1].sql).toBe("SELECT id, username, email, role, created_at FROM users WHERE id = ?");
   });

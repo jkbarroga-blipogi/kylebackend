@@ -1,0 +1,16 @@
+name: Keep Backend Warm
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend health endpoint
+        env:
+          BACKEND_URL: ${{ vars.BACKEND_URL || 'https://kylebackend.onrender.com/' }}
+        run: |
+          curl --fail --silent --show-error --max-time 30 "$BACKEND_URL"

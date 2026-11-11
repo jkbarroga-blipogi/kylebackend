@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { DatabaseService } from '../database/database.service';
 import { translateSqlError } from '../database/sql-errors';
+import { passwordSchema } from '../auth/auth.validation';
 import * as bcrypt from 'bcryptjs';
 
 type Actor = { id: number; role: string };
@@ -96,15 +97,32 @@ export class UsersService {
     }
 
     const body = (partial ?? {}) as Record<string, unknown>;
+    const allowedKeys = ['username', 'password', 'email'];
+    const unknownKey = Object.keys(body).find(key => !allowedKeys.includes(key));
+    if (unknownKey !== undefined) {
+      throw new BadRequestException(`Unknown field: ${unknownKey}`);
+    }
+
     const fields: string[] = [];
     const values: (string | number | null)[] = [];
 
     for (const [key, value] of Object.entries(body)) {
-      if ((key === 'username' || key === 'password') && typeof value === 'string' && value.trim()) {
-        fields.push(`${key} = ?`);
-        values.push(
-          key === 'password' ? await bcrypt.hash(value, 10) : value.trim(),
-        );
+      if (key === 'username') {
+        if (typeof value !== 'string' || !value.trim() || value.trim().length > 255) {
+          throw new BadRequestException('username must contain 1 to 255 characters');
+        }
+        fields.push('username = ?');
+        values.push(value.trim());
+        continue;
+      }
+
+      if (key === 'password') {
+        const checked = passwordSchema.safeParse(value);
+        if (!checked.success) {
+          throw new BadRequestException(checked.error.issues[0]?.message || 'Invalid password');
+        }
+        fields.push('password = ?');
+        values.push(await bcrypt.hash(checked.data, 10));
         continue;
       }
 
