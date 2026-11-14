@@ -147,7 +147,7 @@ export default function DashboardPage() {
       <header className="page-heading">
         <p className="eyebrow">Administration</p>
         <h1>User management</h1>
-        <p>A clear view of the people who make your shelter possible.</p>
+        
       </header>
       <div className="summary-grid" aria-label="Account summary">
         {stats.map(({ label, value, note, icon: Icon }) => (
